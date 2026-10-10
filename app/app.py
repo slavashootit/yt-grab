@@ -58,6 +58,9 @@ DEFAULT_SETTINGS = {
     "asr_engine": "parakeet" if transcribe.is_apple_silicon() else "whisper",
     "asr_language": "auto",
     "asr_txt": True,
+    "auto_mp4": True,  # most users want an editor-friendly MP4 right away
+    "mp4_codec": "auto",
+    "keep_original": False,
 }
 
 settings_lock = threading.Lock()
@@ -105,6 +108,14 @@ def save_settings(new: dict) -> dict:
             data["asr_language"] = new["asr_language"]
         if "asr_txt" in new:
             data["asr_txt"] = bool(new["asr_txt"])
+        if "auto_mp4" in new:
+            data["auto_mp4"] = bool(new["auto_mp4"])
+        if "mp4_codec" in new:
+            if new["mp4_codec"] not in converter.MP4_CODECS:
+                raise ValueError("Невідомий кодек")
+            data["mp4_codec"] = new["mp4_codec"]
+        if "keep_original" in new:
+            data["keep_original"] = bool(new["keep_original"])
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         SETTINGS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
         return data
@@ -323,6 +334,8 @@ class Job:
         self.title = title or url
         self.quality = quality
         self.use_archive = use_archive
+        self.mp4 = False
+        self.replace = False
         self.status = "queued"
         self.percent = 0.0
         self.speed = ""
@@ -338,7 +351,7 @@ class Job:
 
     def to_json(self) -> dict:
         return {
-            "id": self.id, "kind": self.kind, "note": self.note, "url": self.url, "title": self.title, "quality": self.quality,
+            "id": self.id, "kind": self.kind, "note": self.note, "url": self.url, "mp4": self.mp4, "title": self.title, "quality": self.quality,
             "status": self.status, "percent": self.percent, "speed": self.speed,
             "eta": self.eta, "item": self.item, "current": self.current, "error": self.error,
             "files": self.files, "created": self.created,
@@ -389,6 +402,8 @@ def run_job(job: Job) -> None:
                         job.speed, job.eta = "", "обробка…"
             code = job.proc.wait()
             job.files = [l for l in Path(files_log).read_text("utf-8").splitlines() if l.strip()]
+            if job.mp4 and job.files and not job.cancelled:
+                queue_mp4(job, cfg)
             if job.cancelled:
                 job.status = "cancelled"
             elif code == 0:
@@ -414,10 +429,31 @@ def run_job(job: Job) -> None:
                 pass
 
 
-def start_job(url: str, title: str, quality: str, use_archive: bool) -> Job:
+def queue_mp4(job: Job, cfg: dict) -> None:
+    """After a download, turn every fetched video into an MP4 (remux when possible)."""
+    queued, skipped = 0, 0
+    for path in job.files:
+        if Path(path).suffix.lower() in AUDIO_EXT | IMAGE_EXT:
+            continue
+        try:
+            info = converter.probe(path)
+            preset = converter.auto_preset(info, cfg.get("mp4_codec", "auto"))
+            if Path(path).suffix.lower() == ".mp4" and preset == "remux":
+                skipped += 1  # already an MP4 in H.264/HEVC
+                continue
+            start_convert(path, preset, "source", replace=True)
+            queued += 1
+        except ValueError as exc:
+            job.note = f"Не вдалося поставити в MP4: {exc}"
+    if queued:
+        job.note = f"Конвертую в MP4: {queued}" + (f" · вже MP4: {skipped}" if skipped else "")
+
+
+def start_job(url: str, title: str, quality: str, use_archive: bool, mp4: bool = False) -> Job:
     if quality not in ("best", "audio") and not str(quality).isdigit():
         raise ValueError("Невідома якість")
     job = Job(url, title, str(quality), use_archive)
+    job.mp4 = mp4 and quality != "audio"
     with jobs_lock:
         # Two identical jobs would race for the same output file.
         for other in jobs.values():
@@ -462,7 +498,10 @@ def run_convert(job: Job) -> None:
             job.status = "cancelled"
             return
         info = job.info
+        src = Path(info["path"])
         dst = converter.output_path(info["path"], job.quality)
+        if job.replace and src.suffix.lower() != ".mp4" and not src.with_suffix(".mp4").exists():
+            dst = src.with_suffix(".mp4")  # "title [id].2160p.mkv" -> "title [id].2160p.mp4"
         part = dst.with_name(dst.name[: -len(".mp4")] + ".part.mp4")
         hardware = True
         try:
@@ -482,6 +521,8 @@ def run_convert(job: Job) -> None:
                 part.rename(dst)
                 job.files, job.status, job.percent, job.eta, job.speed = [str(dst)], "done", 100.0, "", ""
                 job.current = dst.name
+                if job.replace and not load_settings().get("keep_original"):
+                    src.unlink(missing_ok=True)
             else:
                 job.status, job.error = "error", err or f"ffmpeg завершився з кодом {code}"
         except Exception as exc:  # surface any launcher failure in the UI
@@ -492,7 +533,7 @@ def run_convert(job: Job) -> None:
                 part.unlink(missing_ok=True)
 
 
-def start_convert(path: str, preset: str, res: str) -> Job:
+def start_convert(path: str, preset: str, res: str, replace: bool = False) -> Job:
     src = Path(os.path.expanduser(path.strip())).resolve()
     if not src.is_file():
         raise ValueError(f"Файл не знайдено: {path}")
@@ -503,7 +544,7 @@ def start_convert(path: str, preset: str, res: str) -> Job:
     info = converter.probe(str(src))
     label = converter.label_for(info, preset, res)
     job = Job(str(src), src.name, label, False, kind="convert")
-    job.info, job.preset, job.res = info, preset, res
+    job.info, job.preset, job.res, job.replace = info, preset, res, replace
     if preset == "remux":
         converter.build_command(info, preset, res, "/dev/null", False)  # validate codecs up front
     with jobs_lock:
@@ -1055,8 +1096,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/info":
                 self._send_json(fetch_info(normalize_url(str(data.get("url", "")))))
             elif path == "/api/download":
+                mp4 = bool(data.get("mp4", load_settings().get("auto_mp4")))
                 job = start_job(normalize_url(str(data.get("url", ""))), str(data.get("title") or ""),
-                                str(data.get("quality", "best")), use_archive=data.get("kind") != "video")
+                                str(data.get("quality", "best")), use_archive=data.get("kind") != "video", mp4=mp4)
                 self._send_json(job.to_json())
             elif path == "/api/probe":
                 src = Path(os.path.expanduser(str(data.get("path", "")).strip())).resolve()

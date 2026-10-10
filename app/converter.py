@@ -228,5 +228,18 @@ def build_command(info: dict, preset: str, res: str, dst: str, hardware: bool) -
     return cmd + ["-movflags", "+faststart", dst], notes
 
 
+MP4_CODECS = ("auto", "h264", "hevc")
+
+
+def auto_preset(info: dict, codec: str = "auto") -> str:
+    """Pick the cheapest conversion that yields an MP4 every editor and player opens."""
+    if codec in ("h264", "hevc"):
+        return "remux" if info["vcodec"] == codec else codec
+    if info["vcodec"] in REMUX_VIDEO:
+        return "remux"  # already H.264/HEVC: lossless and instant
+    short = min(info["width"], info["height"]) or info["height"]
+    return "hevc" if info["hdr"] or short > 1440 else "h264"
+
+
 def is_hardware(cmd: list[str]) -> bool:
     return any(arg.endswith("_videotoolbox") for arg in cmd)

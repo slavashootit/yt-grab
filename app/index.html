@@ -155,6 +155,8 @@
   .q.audio b { color: #e2b4ff; }
   .q.photos { background: linear-gradient(135deg, #c026d3, #7c3aed); border-color: transparent; color: #fff; grid-column: 1 / -1; }
   .q.photos span { color: #ffffffcc; }
+  .mp4-toggle { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #15181e; }
+  .mp4-toggle .muted { font-size: 12px; }
   .entries { margin-top: 14px; max-height: 250px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; }
   .entry { display: flex; gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--border); }
   .entry:last-child { border-bottom: 0; }
@@ -316,6 +318,7 @@
           <option value="best">Найкраща якість</option><option value="2160">До 4K</option><option value="1440">До 1440p</option>
           <option value="1080">До 1080p</option><option value="720">До 720p</option><option value="audio">Лише аудіо</option>
         </select>
+        <label class="check"><input type="checkbox" data-mp4> Одразу в MP4</label>
         <button class="btn primary" id="batch-go">Завантажити все</button>
       </div>
     </div>
@@ -396,6 +399,17 @@
       <div class="setting">
         <div><label class="title" for="out-dir">Папка для завантажень</label><p>Кожна платформа й канал ідуть у свою підпапку.</p></div>
         <div><input class="field-input" type="text" id="out-dir"></div>
+      </div>
+      <div class="setting">
+        <div><label class="title" for="mp4-codec">MP4 після завантаження</label><p>Коли увімкнено «Одразу в MP4». Відео в H.264/HEVC просто перепаковується без втрат — миттєво.</p></div>
+        <div>
+          <select class="field-input" id="mp4-codec">
+            <option value="auto">Авто — HEVC для 4K/8K і HDR, H.264 для решти</option>
+            <option value="h264">Завжди H.264 (до 4K)</option>
+            <option value="hevc">Завжди HEVC</option>
+          </select>
+          <label class="check" style="margin-top:10px"><input type="checkbox" id="keep-original"> Залишати оригінал (.mkv / .webm) поруч з MP4</label>
+        </div>
       </div>
       <div class="setting">
         <div><label class="title" for="cookies">Cookies з браузера</label><p>Коли Instagram, Vimeo, Facebook чи X просять вхід, для відео 18+ і приватних плейлистів.</p></div>
@@ -558,10 +572,16 @@ async function loadStatus() {
   $("#out-dir").value = s.settings.out_dir;
   $("#out-dir-label").textContent = s.settings.out_dir;
   $("#cookies").value = s.settings.cookies_browser || "";
+  $("#mp4-codec").value = s.settings.mp4_codec || "auto";
+  $("#keep-original").checked = !!s.settings.keep_original;
+  document.querySelectorAll("[data-mp4]").forEach((box) => { box.checked = !!s.settings.auto_mp4; });
 }
 $("#save-settings").addEventListener("click", async () => {
   try {
-    state.settings = await api("/api/settings", { out_dir: $("#out-dir").value, cookies_browser: $("#cookies").value });
+    state.settings = await api("/api/settings", {
+      out_dir: $("#out-dir").value, cookies_browser: $("#cookies").value,
+      mp4_codec: $("#mp4-codec").value, keep_original: $("#keep-original").checked,
+    });
     $("#out-dir").value = state.settings.out_dir;
     $("#out-dir-label").textContent = state.settings.out_dir;
     toast("Збережено");
@@ -647,7 +667,7 @@ function renderResult() {
       .concat(info.qualities.map((q) => qCard(q.height, resName(q.height),
         [q.height >= 1440 ? q.height + "p" : "", fmtSize(q.size), q.fps && q.fps > 30 ? Math.round(q.fps) + "fps" : ""].filter(Boolean).join(" · "))))
       .concat([qCard("audio", "Аудіо", fmtSize(info.audio_size) || "m4a", "audio")]);
-    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info)}<div class="qgrid">${cards.join("")}</div>`;
+    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info)}<div class="qgrid">${cards.join("")}</div>${mp4Toggle()}`;
   } else {
     const entries = (info.entries || []).map((e, i) =>
       `<div class="entry"><span class="n num">${i + 1}</span><span>${esc(e.title || "—")}</span><span class="d num">${fmtDuration(e.duration)}</span></div>`).join("");
@@ -655,31 +675,47 @@ function renderResult() {
     const cards = [qCard("best", "Усе в найкращій", `${info.count} відео`, "best"), qCard(2160, "До 4K"), qCard(1440, "До 2K"),
       qCard(1080, "До 1080p"), qCard(720, "До 720p"), qCard("audio", "Лише аудіо", "", "audio")];
     if (info.can_photos) cards.push('<button class="q photos" id="photos-all"><b>Усе з поста, разом з фото</b><span>через gallery-dl</span></button>');
-    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info, info.count + " відео")}<div class="qgrid">${cards.join("")}</div><div class="entries">${entries}${more}</div>`;
+    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info, info.count + " відео")}<div class="qgrid">${cards.join("")}</div>${mp4Toggle()}<div class="entries">${entries}${more}</div>`;
   }
   // A dead preview keeps the empty frame instead of a broken-image icon.
   const thumb = info.thumbnail ? `<img class="thumb" src="${esc(info.thumbnail)}" alt="" referrerpolicy="no-referrer" onerror="this.removeAttribute('src')">` : `<div class="thumb"></div>`;
   const dur = info.duration ? `<span class="duration num">${fmtDuration(info.duration)}</span>` : "";
   $("#result").innerHTML = `<div class="result"><div class="thumb-wrap">${thumb}${dur}</div><div>${right}</div></div>`;
   document.querySelectorAll("#result .q[data-q]").forEach((b) => b.addEventListener("click", () => download(b.dataset.q)));
+  bindMp4Toggle($("#result"));
   if ($("#photos-all")) $("#photos-all").addEventListener("click", () => downloadPhotos({ title: info.title, uploader: info.uploader, count: 0 }));
 }
 async function downloadPhotos(info) {
   try { await api("/api/photos", { url: state.url, info }); toast("Фото додано в чергу"); loadJobs(); }
   catch (e) { toast(e.message); }
 }
+function mp4Toggle() {
+  const on = state.settings && state.settings.auto_mp4 ? "checked" : "";
+  return `<label class="check mp4-toggle"><input type="checkbox" data-mp4 ${on}><span>Одразу в MP4 <span class="muted">— найкраща якість, потім MP4 для монтажу й плеєрів</span></span></label>`;
+}
+function bindMp4Toggle(root) {
+  root.querySelectorAll("[data-mp4]").forEach((box) => box.addEventListener("change", async () => {
+    document.querySelectorAll("[data-mp4]").forEach((other) => { other.checked = box.checked; });
+    try { state.settings = await api("/api/settings", { auto_mp4: box.checked }); } catch (e) { toast(e.message); }
+  }));
+}
+function wantMp4() {
+  return !!(state.settings && state.settings.auto_mp4);
+}
 async function download(quality) {
   try {
-    await api("/api/download", { url: state.url, title: state.info && state.info.title, kind: state.info && state.info.kind, quality });
-    toast(`Додано в чергу: ${qualityLabel(quality)}`);
+    await api("/api/download", { url: state.url, title: state.info && state.info.title, kind: state.info && state.info.kind, quality, mp4: wantMp4() });
+    toast(`Додано в чергу: ${qualityLabel(quality)}${wantMp4() && quality !== "audio" ? " → MP4" : ""}`);
     loadJobs();
   } catch (e) { toast(e.message); }
 }
 
 // ---------- batch ----------
+bindMp4Toggle($("#batch"));
 $("#batch-link").addEventListener("click", (ev) => {
   ev.preventDefault();
   $("#batch").hidden = !$("#batch").hidden;
+  $("#batch [data-mp4]").checked = wantMp4();
   if (!$("#batch").hidden) $("#batch-urls").focus();
 });
 $("#batch-go").addEventListener("click", async () => {
@@ -688,7 +724,7 @@ $("#batch-go").addEventListener("click", async () => {
   const quality = $("#batch-quality").value;
   let ok = 0;
   for (const url of urls) {
-    try { await api("/api/download", { url, quality }); ok++; }
+    try { await api("/api/download", { url, quality, mp4: wantMp4() }); ok++; }
     catch (e) { toast(url + ": " + e.message); }
   }
   if (ok) { toast(`Додано в чергу: ${ok}`); $("#batch-urls").value = ""; show("queue"); }
@@ -700,7 +736,7 @@ function jobTag(j) {
   if (j.kind === "convert") return "→ " + esc(j.quality);
   if (j.kind === "transcribe") return "SRT · " + esc(j.quality);
   if (j.kind === "photos") return "фото";
-  return esc(qualityLabel(j.quality));
+  return esc(qualityLabel(j.quality)) + (j.mp4 ? " → MP4" : "");
 }
 async function loadJobs() {
   try { state.jobs = await api("/api/jobs"); } catch { return; }
