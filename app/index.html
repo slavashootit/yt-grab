@@ -1,0 +1,1093 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YT Grab</title>
+<style>
+  :root {
+    --bg: #131519;
+    --sidebar: #0e1013;
+    --surface: #1a1d23;
+    --surface-2: #22262e;
+    --surface-3: #2a2f39;
+    --border: #2a2f38;
+    --border-strong: #3a414d;
+    --text: #eceef2;
+    --muted: #8d95a5;
+    --faint: #626a79;
+    --accent: #6d8bff;
+    --accent-2: #a46bff;
+    --grad: linear-gradient(135deg, #6d8bff 0%, #a46bff 100%);
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --err: #f87171;
+    --radius: 12px;
+    --radius-sm: 8px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text); display: flex; overflow: hidden;
+    font: 13.5px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none;
+  }
+  input, textarea, .selectable { user-select: text; -webkit-user-select: text; }
+  button { font: inherit; cursor: pointer; border: 0; color: inherit; background: none; }
+  input, select, textarea { font: inherit; color: var(--text); }
+  a { color: #9db2ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #2c313b; border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- sidebar ---------- */
+  aside {
+    width: 220px; flex: none; background: var(--sidebar); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 18px 10px 12px;
+  }
+  body.native aside { padding-top: 46px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 18px; }
+  .logo { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--grad); color: #fff; box-shadow: 0 4px 14px #6d8bff40; }
+  .brand b { font-size: 15px; letter-spacing: -.01em; }
+  .brand small { display: block; color: var(--faint); font-size: 11px; line-height: 1.2; }
+  .nav-group { color: var(--faint); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 14px 10px 6px; }
+  .nav {
+    display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; width: 100%;
+    color: #b7bdc9; text-align: left; transition: background .12s, color .12s;
+  }
+  .nav:hover { background: #181b21; color: var(--text); }
+  .nav.active { background: var(--surface-2); color: #fff; }
+  .nav.active svg { color: var(--accent); }
+  .nav svg { width: 17px; height: 17px; flex: none; color: var(--muted); }
+  .badge { margin-left: auto; min-width: 20px; padding: 0 6px; border-radius: 10px; background: #2b3550; color: #c6d2ff; font-size: 11px; line-height: 18px; text-align: center; }
+  .badge:empty { display: none; }
+  .side-foot { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); }
+  .status-line { display: flex; align-items: center; gap: 7px; padding: 8px 10px 0; color: var(--faint); font-size: 11.5px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px #34d39980; flex: none; }
+  .dot.warn { background: var(--warn); box-shadow: 0 0 8px #fbbf2480; }
+
+  /* ---------- layout ---------- */
+  main { flex: 1; overflow-y: auto; padding: 34px 40px 60px; }
+  body.native main { padding-top: 46px; }
+  .view { display: none; max-width: 1020px; margin: 0 auto; animation: fade .18s ease; }
+  .view.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+  h2 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+  .lead { color: var(--muted); margin: 4px 0 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .grid-2 { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+
+  /* ---------- controls ---------- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 34px; padding: 0 16px; border-radius: 9px; background: var(--surface-3); font-weight: 600; transition: filter .12s, transform .06s, background .12s; white-space: nowrap; }
+  .btn:hover { background: #333946; }
+  .btn:active { transform: scale(.98); }
+  .btn.primary { background: var(--grad); color: #fff; box-shadow: 0 4px 16px #6d8bff33; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.big { height: 42px; padding: 0 22px; font-size: 14px; }
+  .btn.block { width: 100%; }
+  .btn:disabled { opacity: .45; cursor: default; box-shadow: none; transform: none; }
+  .chip-btn { height: 28px; padding: 0 11px; border-radius: 7px; background: var(--surface-2); color: #cfd4de; font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  .chip-btn:hover { background: var(--surface-3); color: #fff; }
+  .chip-btn.accent { background: #26315a; color: #d4ddff; }
+  .chip-btn.accent:hover { background: #2f3d70; }
+  .field-input, select.field-input, textarea.field-input {
+    width: 100%; height: 36px; background: #101216; border: 1px solid var(--border-strong); border-radius: 9px;
+    padding: 0 12px; outline: none; transition: border-color .12s, box-shadow .12s;
+  }
+  textarea.field-input { height: auto; padding: 10px 12px; resize: vertical; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #6d8bff2e; }
+  select.field-input { width: auto; padding-right: 30px; }
+  .check { display: flex; align-items: center; gap: 9px; color: #c7ccd6; cursor: pointer; }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12.5px; }
+
+  /* ---------- home ---------- */
+  .hero { text-align: center; margin: 18px 0 22px; }
+  .hero h1 { font-size: 30px; }
+  .hero h1 span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .urlbar {
+    display: flex; align-items: center; gap: 8px; max-width: 680px; margin: 0 auto; padding: 6px 6px 6px 16px;
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; transition: border-color .15s, box-shadow .15s;
+  }
+  .urlbar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px #6d8bff26; }
+  .urlbar svg { color: var(--faint); flex: none; }
+  .urlbar input { flex: 1; min-width: 0; height: 40px; background: none; border: 0; outline: none; font-size: 15px; }
+  .platforms { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 680px; margin: 14px auto 6px; }
+  .pf { font-size: 11.5px; padding: 3px 10px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); transition: .15s; }
+  .pf.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .links { text-align: center; color: var(--faint); font-size: 12.5px; margin-bottom: 22px; }
+  .batch { max-width: 680px; margin: 0 auto 24px; }
+  .batch .row { margin-top: 10px; }
+  .batch .btn { margin-left: auto; }
+  .alert { max-width: 680px; margin: 0 auto 18px; padding: 12px 14px; border-radius: 10px; background: #2a1719; border: 1px solid #5a2a31; color: #ffd0d5; }
+  .alert.info { background: #172036; border-color: #2f4170; color: #d3defd; }
+  .alert code, .card code { background: #00000055; padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  .alert .btn { margin-top: 10px; }
+  .features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 760px; margin: 26px auto 0; }
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .feature svg { color: var(--accent); margin-bottom: 6px; }
+  .feature b { display: block; margin-bottom: 2px; }
+  .feature span { color: var(--muted); font-size: 12.5px; }
+
+  .result { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 26px; align-items: start; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+  .thumb-wrap { position: relative; }
+  .thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 10px; background: var(--surface-2); display: block; }
+  .duration { position: absolute; right: 8px; bottom: 8px; background: #000000b3; padding: 1px 7px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .meta-title { font-weight: 700; font-size: 17px; line-height: 1.35; margin: 2px 0 6px; letter-spacing: -.01em; }
+  .meta-sub { color: var(--muted); margin-bottom: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .pf-badge { font-size: 11.5px; padding: 1px 8px; border-radius: 6px; background: #26315a; color: #cdd8ff; font-weight: 600; }
+  .qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .q { text-align: left; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); transition: border-color .12s, background .12s, transform .06s; }
+  .q:hover { border-color: var(--accent); background: #262c3a; }
+  .q:active { transform: scale(.98); }
+  .q b { display: block; font-size: 16px; letter-spacing: -.01em; }
+  .q span { display: block; color: var(--muted); font-size: 11.5px; }
+  .q.best { background: var(--grad); border-color: transparent; color: #fff; grid-column: span 2; }
+  .q.best span { color: #ffffffcc; }
+  .q.audio b { color: #e2b4ff; }
+  .q.photos { background: linear-gradient(135deg, #c026d3, #7c3aed); border-color: transparent; color: #fff; grid-column: 1 / -1; }
+  .q.photos span { color: #ffffffcc; }
+  .entries { margin-top: 14px; max-height: 250px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; }
+  .entry { display: flex; gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .entry:last-child { border-bottom: 0; }
+  .entry .n { color: var(--faint); width: 26px; flex: none; text-align: right; }
+  .entry .d { margin-left: auto; color: var(--faint); flex: none; }
+  .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  .photo-grid.single { grid-template-columns: minmax(0, 300px); }
+  .photo-grid img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 9px; background: var(--surface-2); display: block; }
+  .spinner { width: 30px; height: 30px; margin: 40px auto; border-radius: 50%; border: 3px solid #2c3240; border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- queue ---------- */
+  .job { display: flex; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; }
+  .job-icon { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: var(--surface-2); color: var(--accent); flex: none; }
+  .job.done .job-icon { color: var(--ok); }
+  .job.error .job-icon { color: var(--err); }
+  .job-body { flex: 1; min-width: 0; }
+  .job-top { display: flex; gap: 10px; align-items: center; }
+  .job-title { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag { font-size: 11px; padding: 1px 8px; border-radius: 6px; background: var(--surface-2); color: #c5cde0; flex: none; font-weight: 600; }
+  .tag.running { background: #26315a; color: #cdd8ff; }
+  .tag.done { background: #123326; color: #8ff0c4; }
+  .tag.error { background: #3b1a1e; color: #ffb4bb; }
+  .tag.cancelled { background: #2c2c2c; color: #bbb; }
+  .bar { height: 4px; background: #0f1115; border-radius: 3px; margin: 10px 0 6px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--grad); width: 0; transition: width .3s; border-radius: 3px; }
+  .job.done .bar > div { background: var(--ok); }
+  .job.error .bar > div { background: var(--err); }
+  .job-info { display: flex; gap: 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+  .job-actions { display: flex; gap: 6px; flex: none; }
+  .job-err { color: #ffb4bb; font-size: 12.5px; margin-top: 6px; word-break: break-word; }
+  .job-note { color: var(--warn); font-size: 12.5px; margin-top: 6px; }
+
+  /* ---------- files ---------- */
+  .search { width: 240px; }
+  .files { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .file { display: flex; align-items: center; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--border); }
+  .file:last-child { border-bottom: 0; }
+  .file:hover { background: #1e2128; }
+  .ftype { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex: none; background: var(--surface-2); color: var(--muted); }
+  .ftype.video { color: #7ea0ff; } .ftype.audio { color: #d6a3ff; } .ftype.image { color: #6ee7b7; }
+  .file-main { flex: 1; min-width: 0; }
+  .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-sub { color: var(--faint); font-size: 12px; }
+  .file .chip-btn { opacity: .0; transition: opacity .12s; }
+  .file:hover .chip-btn, .file .chip-btn.accent { opacity: 1; }
+  .empty { text-align: center; color: var(--faint); padding: 46px 0; }
+
+  /* ---------- pickers / converter / subtitles ---------- */
+  .dropzone { border: 1.5px dashed var(--border-strong); border-radius: 11px; padding: 18px; text-align: center; color: var(--muted); margin-bottom: 12px; transition: .15s; }
+  .dropzone svg { color: var(--faint); display: block; margin: 0 auto 6px; }
+  .dropzone .row { justify-content: center; margin-top: 10px; }
+  .view.dragging .dropzone, .view.dragging .urlbar { border-color: var(--accent); background: #1b2440; color: #dbe4ff; }
+  .sel { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .sel:last-child { border-bottom: 0; }
+  .sel-main { flex: 1; min-width: 0; }
+  .sel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sel-sub { color: var(--faint); font-size: 12px; }
+  .hdr { background: #4a3109; color: #ffd28a; border-radius: 4px; padding: 0 5px; font-size: 10.5px; font-weight: 700; }
+  .pathrow { display: flex; gap: 8px; margin-top: 12px; }
+  .pick { max-height: 280px; overflow-y: auto; margin-top: 8px; }
+  .option { display: flex; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: border-color .12s, background .12s; }
+  .option:hover { border-color: var(--border-strong); }
+  .option.on { border-color: var(--accent); background: #1d2438; }
+  .option.off { opacity: .5; cursor: default; }
+  .option input[type=radio] { accent-color: var(--accent); width: 16px; height: 16px; margin: 2px 0 0; flex: none; }
+  .option-main { flex: 1; min-width: 0; }
+  .option-main b { display: block; }
+  .option-main > span { color: var(--muted); font-size: 12.5px; }
+  .option-act { margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .option-act .field-input { flex: 1; min-width: 150px; height: 30px; }
+  .hint { color: var(--warn); font-size: 12.5px; margin: 6px 0 12px; }
+  .hint:empty { display: none; }
+  .ok { color: var(--ok); font-size: 12.5px; font-weight: 600; }
+  .engine-line { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .engine-line b { color: var(--text); font-weight: 600; }
+
+  /* ---------- settings ---------- */
+  .setting { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+  .setting:last-of-type { border-bottom: 0; }
+  .setting label.title { font-weight: 600; }
+  .setting p { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tool { padding: 3px 10px; border-radius: 20px; font-size: 12px; background: #123326; color: #8ff0c4; font-weight: 600; }
+  .tool.missing { background: #3b1a1e; color: #ffb4bb; }
+
+  .toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(16px); max-width: 560px;
+    background: #20242c; border: 1px solid var(--border-strong); padding: 10px 16px; border-radius: 12px;
+    box-shadow: 0 12px 32px #00000066; opacity: 0; transition: .2s; pointer-events: none; z-index: 10;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%); }
+
+  @media (max-width: 860px) {
+    body { flex-direction: column; overflow: auto; }
+    aside { width: auto; flex-direction: row; overflow-x: auto; padding: 8px; }
+    .brand, .side-foot, .nav-group { display: none; }
+    .nav { width: auto; white-space: nowrap; }
+    main { padding: 20px 16px; overflow: visible; }
+    .result, .grid-2, .features, .setting { grid-template-columns: 1fr; }
+    .search { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand">
+    <div class="logo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg></div>
+    <div><b>YT Grab</b><small>без лімітів</small></div>
+  </div>
+  <div class="nav-group">Медіа</div>
+  <button class="nav active" data-view="home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+    Завантажити
+  </button>
+  <button class="nav" data-view="queue">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h7"/><path d="m16 15 3 3 3-3M19 11v7"/></svg>
+    Черга <span class="badge num" id="badge-queue"></span>
+  </button>
+  <button class="nav" data-view="downloads">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    Завантажене <span class="badge num" id="badge-downloads"></span>
+  </button>
+  <div class="nav-group">Інструменти</div>
+  <button class="nav" data-view="convert">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>
+    Конвертер <span class="badge num" id="badge-convert"></span>
+  </button>
+  <button class="nav" data-view="subs">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M7 15h4M13 15h4M7 11h10"/></svg>
+    Субтитри <span class="badge num" id="badge-subs"></span>
+  </button>
+  <div class="side-foot">
+    <button class="nav" data-view="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+      Налаштування
+    </button>
+    <div class="status-line"><span class="dot" id="status-dot"></span><span id="status-text">Перевіряю інструменти…</span></div>
+  </div>
+</aside>
+
+<main>
+  <!-- home -->
+  <section class="view active" id="view-home">
+    <div class="hero"><h1>Що <span>качаємо</span>?</h1><p class="lead">Відео, плейлист, цілий канал або пост з фото — у найкращій якості</p></div>
+    <div id="tools-alert"></div>
+    <form class="urlbar" id="url-form">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+      <input id="url" type="text" placeholder="Встав посилання на відео, плейлист, канал або пост" autocomplete="off" autofocus>
+      <button class="chip-btn" type="button" id="paste-btn">Вставити</button>
+      <button class="btn primary" type="submit" id="get-btn">Отримати</button>
+    </form>
+    <div class="platforms" id="platforms"></div>
+    <div class="links">та ще понад тисяча сайтів · <a href="#" id="batch-link">кілька посилань одразу</a> · <a href="#" id="txt-link">посилання з .txt</a><input type="file" id="txt-input" accept=".txt,.csv,text/plain" multiple hidden></div>
+    <div class="batch" id="batch" hidden>
+      <textarea class="field-input" id="batch-urls" rows="6" placeholder="Кожне посилання з нового рядка: відео, плейлисти, канали"></textarea>
+      <div class="row">
+        <select class="field-input" id="batch-quality">
+          <option value="best">Найкраща якість</option><option value="2160">До 4K</option><option value="1440">До 1440p</option>
+          <option value="1080">До 1080p</option><option value="720">До 720p</option><option value="audio">Лише аудіо</option>
+        </select>
+        <button class="btn primary" id="batch-go">Завантажити все</button>
+      </div>
+    </div>
+    <div id="result">
+      <div class="features">
+        <div class="feature"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><b>Плейлисти й канали</b><span>Повністю, а повторний запуск докачує лише нове</span></div>
+        <div class="feature"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg><b>Фото-пости</b><span>Каруселі Instagram і слайдшоу TikTok</span></div>
+        <div class="feature"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg><b>Перетягни сюди</b><span>Посилання з браузера або .txt зі списком</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- queue -->
+  <section class="view" id="view-queue">
+    <div class="page-head"><div><h2>Черга</h2><p class="lead">Завантаження, конвертація і субтитри</p></div><button class="btn" id="clear-btn">Прибрати завершені</button></div>
+    <div id="jobs"></div>
+  </section>
+
+  <!-- downloads -->
+  <section class="view" id="view-downloads">
+    <div class="page-head"><div><h2>Завантажене</h2><p class="lead selectable" id="out-dir-label"></p></div><input class="field-input search" id="search" placeholder="Пошук за назвою…"></div>
+    <div id="files"></div>
+  </section>
+
+  <!-- converter -->
+  <section class="view" id="view-convert">
+    <div class="page-head"><div><h2>Конвертер у MP4</h2><div class="engine-line" id="engine"></div></div></div>
+    <div class="grid-2">
+      <div id="conv-files"></div>
+      <div>
+        <div class="card">
+          <h3>Формат</h3>
+          <label class="option preset on"><input type="radio" name="preset" value="h264" checked><div class="option-main"><b>H.264</b><span>Відкривається всюди: монтажки, телефони, месенджери. До 4K, HDR стає SDR.</span></div></label>
+          <label class="option preset"><input type="radio" name="preset" value="hevc"><div class="option-main"><b>HEVC (H.265)</b><span>Зберігає 8K і HDR, файл менший.</span></div></label>
+          <label class="option preset"><input type="radio" name="preset" value="remux"><div class="option-main"><b>Швидко перепакувати</b><span>Без перекодування, за секунди. Лише для H.264/HEVC.</span></div></label>
+          <div class="hint" id="conv-hint"></div>
+          <div class="row">
+            <span class="muted">Роздільність</span>
+            <select class="field-input" id="conv-res">
+              <option value="source">Як в оригіналі</option><option value="2160">2160p (4K)</option><option value="1440">1440p</option>
+              <option value="1080">1080p</option><option value="720">720p</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn primary big block" id="conv-go">Конвертувати</button>
+        <p class="muted small">Готовий файл лягає поруч з оригіналом, наприклад «… [H.264 2160p].mp4». Оригінал не змінюється.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- subtitles -->
+  <section class="view" id="view-subs">
+    <div class="page-head"><div><h2>Субтитри</h2><p class="lead">Розпізнає мову й робить .srt поруч з відео — монтажки й плеєри підхоплять його самі</p></div></div>
+    <div class="grid-2">
+      <div id="sub-files"></div>
+      <div>
+        <div class="card">
+          <h3>Рушій розпізнавання</h3>
+          <div id="sub-engines"></div>
+        </div>
+        <div class="card">
+          <div class="row" style="margin-bottom:12px">
+            <span class="muted">Мова</span>
+            <select class="field-input" id="sub-lang"></select>
+          </div>
+          <div class="hint" id="sub-hint"></div>
+          <label class="check"><input type="checkbox" id="sub-txt"> Також .txt — суцільний текст без таймінгів</label>
+        </div>
+        <button class="btn primary big block" id="sub-go">Створити субтитри</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- settings -->
+  <section class="view" id="view-settings">
+    <div class="page-head"><div><h2>Налаштування</h2></div><button class="btn primary" id="save-settings">Зберегти</button></div>
+    <div class="card">
+      <div class="setting">
+        <div><label class="title" for="out-dir">Папка для завантажень</label><p>Кожна платформа й канал ідуть у свою підпапку.</p></div>
+        <div><input class="field-input" type="text" id="out-dir"></div>
+      </div>
+      <div class="setting">
+        <div><label class="title" for="cookies">Cookies з браузера</label><p>Коли Instagram, Vimeo, Facebook чи X просять вхід, для відео 18+ і приватних плейлистів.</p></div>
+        <div>
+          <select class="field-input" id="cookies">
+            <option value="">Не використовувати</option><option value="chrome">Chrome</option><option value="safari">Safari</option>
+            <option value="firefox">Firefox</option><option value="brave">Brave</option><option value="edge">Edge</option>
+            <option value="opera">Opera</option><option value="vivaldi">Vivaldi</option><option value="chromium">Chromium</option>
+          </select>
+          <p>Береться вхід з обраного браузера. Chrome спитає доступ до Keychain — натисни «Дозволити».</p>
+        </div>
+      </div>
+      <div class="setting">
+        <div><label class="title">Компоненти</label><p>yt-dlp, ffmpeg, deno, curl_cffi (для TikTok) і gallery-dl (для фото). YT Grab тримає їх у ~/.ytgrab і оновлює цією кнопкою — корисно, якщо якийсь сайт перестав качати.</p></div>
+        <div>
+          <div class="tools" id="tools"></div>
+          <div class="row"><button class="btn primary" id="install-ytdlp">Оновити компоненти</button><span class="muted small" id="ytdlp-meta"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+let state = { settings: null, info: null, url: "", files: [], jobs: [] };
+
+// ---------- native macOS shell bridge ----------
+const NATIVE = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ytgrab);
+if (NATIVE) document.body.classList.add("native");
+const nativeWaiters = {};
+let nativeSeq = 0;
+function nativeCall(cmd, data = {}) {
+  return new Promise((resolve) => {
+    const id = ++nativeSeq;
+    nativeWaiters[id] = resolve;
+    window.webkit.messageHandlers.ytgrab.postMessage(Object.assign({ cmd, id }, data));
+  });
+}
+window.ytgrabNative = {
+  resolve(id, payload) { const fn = nativeWaiters[id]; delete nativeWaiters[id]; if (fn) fn(payload); },
+  // Files dropped onto the app window arrive here with their real paths.
+  async drop(paths) {
+    document.querySelectorAll(".view.dragging").forEach((v) => v.classList.remove("dragging"));
+    const view = (document.querySelector(".view.active") || {}).id;
+    try {
+      if (view === "view-convert" || view === "view-subs") {
+        const res = await api("/api/expand", { paths });
+        const picker = view === "view-convert" ? conv.picker : subs.picker;
+        await picker.addMany(res.paths);
+        if (!res.paths.length) toast("У перетягнутому немає відео чи аудіо");
+      } else {
+        const res = await api("/api/read-links", { paths });
+        if (res.urls.length) { if (view !== "view-home") show("home"); useUrls(res.urls); }
+        else toast("Відео перетягни в Конвертер або Субтитри, а сюди — .txt з посиланнями");
+      }
+    } catch (e) { toast(e.message); }
+  },
+};
+
+// ---------- helpers ----------
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function fmtSize(bytes) {
+  if (!bytes) return "";
+  const units = ["Б", "КБ", "МБ", "ГБ", "ТБ"];
+  let i = 0, n = bytes;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return n.toFixed(n >= 100 || i === 0 ? 0 : 1) + " " + units[i];
+}
+function fmtDuration(sec) {
+  if (!sec) return "";
+  sec = Math.round(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
+}
+function qualityLabel(q) {
+  if (q === "best") return "Найкраща";
+  if (q === "audio") return "Аудіо";
+  return q + "p";
+}
+function resName(h) {
+  return { 4320: "8K", 2160: "4K", 1440: "2K" }[h] || h + "p";
+}
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove("show"), 3200);
+}
+async function api(path, body) {
+  const opts = body === undefined ? {} : {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  };
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Помилка " + res.status);
+  return data;
+}
+const ICONS = {
+  download: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>',
+  convert: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>',
+  transcribe: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M7 15h4M13 15h4M7 11h10"/></svg>',
+  photos: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>',
+  setup: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>',
+  video: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="m17 10 5-3v10l-5-3"/></svg>',
+  audio: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+  image: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>',
+  drop: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>',
+};
+
+// ---------- navigation ----------
+function show(view) {
+  document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + view));
+  document.querySelector("main").scrollTop = 0;
+  if (view === "downloads") loadFiles();
+  if (view === "queue") loadJobs();
+  if (view === "convert") { loadFiles(); loadCaps(); }
+  if (view === "subs") { loadFiles(); loadAsr(); }
+}
+document.querySelectorAll(".nav").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
+
+// ---------- status & settings ----------
+async function loadStatus() {
+  const s = await api("/api/status");
+  state.settings = s.settings;
+  const missing = Object.entries(s.tools).filter(([, ok]) => !ok).map(([n]) => n);
+  state.selfInstall = s.self_install;
+  let banner = "";
+  if (missing.length && s.setup_running) {
+    banner = `<div class="alert info">Готую компоненти — це один раз, кілька хвилин. <br><button class="btn primary" data-goto="queue">Дивитись прогрес</button></div>`;
+  } else if (missing.length && s.self_install) {
+    banner = `<div class="alert info">Бракує компонентів: <b>${esc(missing.join(", "))}</b>. YT Grab встановить їх сам. <br><button class="btn primary" data-install-components>Встановити компоненти</button></div>`;
+  } else if (missing.length) {
+    banner = `<div class="alert">Не знайдено: <b>${esc(missing.join(", "))}</b>. Встанови їх менеджером пакетів (наприклад, <code>brew install ${esc(missing.join(" "))}</code>) і перезапусти YT Grab.</div>`;
+  }
+  $("#tools-alert").innerHTML = banner;
+  bindGoto($("#tools-alert"));
+  const installBtn = $("#tools-alert [data-install-components]");
+  if (installBtn) installBtn.addEventListener("click", installComponents);
+  $("#status-dot").classList.toggle("warn", missing.length > 0);
+  $("#status-text").textContent = s.setup_running ? "Готую компоненти…" : missing.length ? "Бракує: " + missing.join(", ") : "Усе готово";
+  if (s.setup_running && !state.watchingSetup) {
+    state.watchingSetup = true;
+    loadJobs();
+  }
+  state.platforms = s.platforms || [];
+  $("#platforms").innerHTML = state.platforms.map((p) => `<span class="pf" data-pf="${p.key}">${esc(p.name)}</span>`).join("");
+  highlightPlatform();
+  const y = s.ytdlp || {};
+  $("#ytdlp-meta").textContent = y.version ? `yt-dlp ${y.version} · ${y.own ? "власна копія" : "з Homebrew"}` : "";
+  $("#install-ytdlp").textContent = missing.length ? "Встановити компоненти" : "Оновити компоненти";
+  $("#tools").innerHTML = Object.entries(s.tools)
+    .map(([n, ok]) => `<span class="tool ${ok ? "" : "missing"}">${ok ? "✓" : "✗"} ${esc(n)}</span>`).join("");
+  $("#out-dir").value = s.settings.out_dir;
+  $("#out-dir-label").textContent = s.settings.out_dir;
+  $("#cookies").value = s.settings.cookies_browser || "";
+}
+$("#save-settings").addEventListener("click", async () => {
+  try {
+    state.settings = await api("/api/settings", { out_dir: $("#out-dir").value, cookies_browser: $("#cookies").value });
+    $("#out-dir").value = state.settings.out_dir;
+    $("#out-dir-label").textContent = state.settings.out_dir;
+    toast("Збережено");
+  } catch (e) { toast(e.message); }
+});
+function bindGoto(root) {
+  root.querySelectorAll("[data-goto]").forEach((b) => b.addEventListener("click", () => show(b.dataset.goto)));
+}
+function errorHtml(msg) {
+  const needsSettings = /Налаштування/.test(msg);
+  return `<div class="alert">${esc(msg)}${needsSettings ? '<br><button class="btn primary" data-goto="settings">Відкрити налаштування</button>' : ""}</div>`;
+}
+function detectPlatform(url) {
+  let host = "";
+  try { host = new URL(url.trim()).hostname.toLowerCase(); } catch { return null; }
+  return (state.platforms || []).find((p) => p.hosts.some((h) => host === h || host.endsWith("." + h))) || null;
+}
+function highlightPlatform() {
+  const p = detectPlatform($("#url").value);
+  document.querySelectorAll(".pf").forEach((el) => el.classList.toggle("on", !!p && el.dataset.pf === p.key));
+}
+$("#url").addEventListener("input", highlightPlatform);
+async function installComponents() {
+  try { await api("/api/tools/install", {}); toast("Встановлюю… прогрес у Черзі"); show("queue"); }
+  catch (e) { toast(e.message); }
+}
+$("#install-ytdlp").addEventListener("click", installComponents);
+$("#paste-btn").addEventListener("click", async () => {
+  try {
+    const text = NATIVE ? await nativeCall("paste") : await navigator.clipboard.readText();
+    const urls = extractUrls(text);
+    if (!urls.length) return toast("У буфері немає посилання");
+    useUrls(urls);
+  } catch { toast("Не вдалося прочитати буфер — встав посилання через ⌘V"); }
+});
+
+// ---------- fetch info ----------
+$("#url-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const url = $("#url").value.trim();
+  if (!url) return;
+  state.url = url;
+  state.info = null;
+  $("#get-btn").disabled = true;
+  $("#result").innerHTML = '<div class="spinner"></div>';
+  try {
+    state.info = await api("/api/info", { url });
+    renderResult();
+  } catch (e) {
+    $("#result").innerHTML = errorHtml(e.message);
+    bindGoto($("#result"));
+  } finally {
+    $("#get-btn").disabled = false;
+  }
+});
+
+function qCard(quality, title, sub, cls = "") {
+  return `<button class="q ${cls}" data-q="${quality}"><b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}</button>`;
+}
+function metaLine(info, extra) {
+  return `<div class="meta-sub">${info.platform ? `<span class="pf-badge">${esc(info.platform)}</span>` : ""}<span>${esc(info.uploader || "")}</span>${extra ? `<span>· ${esc(extra)}</span>` : ""}</div>`;
+}
+function renderResult() {
+  const info = state.info;
+  if (!info) return;
+  if (info.kind === "photos") {
+    const extra = [info.videos ? `${info.videos} відео` : "", info.audio ? "музика" : ""].filter(Boolean).join(" + ");
+    const previews = info.previews || [];
+    const grid = previews.map((u) => `<img src="/api/thumb?u=${encodeURIComponent(u)}" alt="" loading="lazy">`).join("");
+    $("#result").innerHTML = `<div class="result">
+      <div class="photo-grid ${previews.length === 1 ? "single" : ""}">${grid || '<div class="thumb"></div>'}</div>
+      <div>
+        <div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info, info.date)}
+        <div class="qgrid"><button class="q photos" id="photos-go"><b>Скачати фото · ${info.images}</b><span>${extra ? "+ " + esc(extra) + " · " : ""}оригінальна якість, окрема папка</span></button></div>
+      </div></div>`;
+    $("#photos-go").addEventListener("click", () => downloadPhotos(info));
+    return;
+  }
+  let right;
+  if (info.kind === "video") {
+    const top = info.qualities[0];
+    const cards = [qCard("best", "Найкраща", top ? `${resName(top.height)}${top.size ? " · " + fmtSize(top.size) : ""}` : "", "best")]
+      .concat(info.qualities.map((q) => qCard(q.height, resName(q.height),
+        [q.height >= 1440 ? q.height + "p" : "", fmtSize(q.size), q.fps && q.fps > 30 ? Math.round(q.fps) + "fps" : ""].filter(Boolean).join(" · "))))
+      .concat([qCard("audio", "Аудіо", fmtSize(info.audio_size) || "m4a", "audio")]);
+    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info)}<div class="qgrid">${cards.join("")}</div>`;
+  } else {
+    const entries = (info.entries || []).map((e, i) =>
+      `<div class="entry"><span class="n num">${i + 1}</span><span>${esc(e.title || "—")}</span><span class="d num">${fmtDuration(e.duration)}</span></div>`).join("");
+    const more = info.count > (info.entries || []).length ? `<div class="entry"><span class="n"></span><span class="muted">…і ще ${info.count - info.entries.length}</span></div>` : "";
+    const cards = [qCard("best", "Усе в найкращій", `${info.count} відео`, "best"), qCard(2160, "До 4K"), qCard(1440, "До 2K"),
+      qCard(1080, "До 1080p"), qCard(720, "До 720p"), qCard("audio", "Лише аудіо", "", "audio")];
+    if (info.can_photos) cards.push('<button class="q photos" id="photos-all"><b>Усе з поста, разом з фото</b><span>через gallery-dl</span></button>');
+    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info, info.count + " відео")}<div class="qgrid">${cards.join("")}</div><div class="entries">${entries}${more}</div>`;
+  }
+  // A dead preview keeps the empty frame instead of a broken-image icon.
+  const thumb = info.thumbnail ? `<img class="thumb" src="${esc(info.thumbnail)}" alt="" referrerpolicy="no-referrer" onerror="this.removeAttribute('src')">` : `<div class="thumb"></div>`;
+  const dur = info.duration ? `<span class="duration num">${fmtDuration(info.duration)}</span>` : "";
+  $("#result").innerHTML = `<div class="result"><div class="thumb-wrap">${thumb}${dur}</div><div>${right}</div></div>`;
+  document.querySelectorAll("#result .q[data-q]").forEach((b) => b.addEventListener("click", () => download(b.dataset.q)));
+  if ($("#photos-all")) $("#photos-all").addEventListener("click", () => downloadPhotos({ title: info.title, uploader: info.uploader, count: 0 }));
+}
+async function downloadPhotos(info) {
+  try { await api("/api/photos", { url: state.url, info }); toast("Фото додано в чергу"); loadJobs(); }
+  catch (e) { toast(e.message); }
+}
+async function download(quality) {
+  try {
+    await api("/api/download", { url: state.url, title: state.info && state.info.title, kind: state.info && state.info.kind, quality });
+    toast(`Додано в чергу: ${qualityLabel(quality)}`);
+    loadJobs();
+  } catch (e) { toast(e.message); }
+}
+
+// ---------- batch ----------
+$("#batch-link").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  $("#batch").hidden = !$("#batch").hidden;
+  if (!$("#batch").hidden) $("#batch-urls").focus();
+});
+$("#batch-go").addEventListener("click", async () => {
+  const urls = extractUrls($("#batch-urls").value);
+  if (!urls.length) return toast("Встав хоча б одне посилання");
+  const quality = $("#batch-quality").value;
+  let ok = 0;
+  for (const url of urls) {
+    try { await api("/api/download", { url, quality }); ok++; }
+    catch (e) { toast(url + ": " + e.message); }
+  }
+  if (ok) { toast(`Додано в чергу: ${ok}`); $("#batch-urls").value = ""; show("queue"); }
+});
+
+// ---------- queue ----------
+function jobTag(j) {
+  if (j.kind === "setup") return "інструменти";
+  if (j.kind === "convert") return "→ " + esc(j.quality);
+  if (j.kind === "transcribe") return "SRT · " + esc(j.quality);
+  if (j.kind === "photos") return "фото";
+  return esc(qualityLabel(j.quality));
+}
+async function loadJobs() {
+  try { state.jobs = await api("/api/jobs"); } catch { return; }
+  const active = state.jobs.filter((j) => j.status === "running" || j.status === "queued").length;
+  $("#badge-queue").textContent = active || "";
+  const statusText = { queued: "в черзі", running: "качаю", done: "готово", error: "помилка", cancelled: "скасовано" };
+  const runningText = { convert: "конвертую", setup: "встановлюю", transcribe: "розпізнаю" };
+  const busy = (kind) => state.jobs.filter((j) => j.kind === kind && (j.status === "running" || j.status === "queued")).length || "";
+  $("#badge-convert").textContent = busy("convert");
+  $("#badge-subs").textContent = busy("transcribe");
+  $("#jobs").innerHTML = state.jobs.length ? state.jobs.map((j) => {
+    const last = j.files.length ? j.files[j.files.length - 1] : "";
+    const actions = [
+      j.status === "running" || j.status === "queued" ? `<button class="chip-btn" data-cancel="${j.id}">Скасувати</button>` : "",
+      j.status === "done" && j.kind === "download" && j.quality !== "audio" && j.files.length === 1 ? `<button class="chip-btn accent" data-convert="${esc(j.files[0])}">→ MP4</button>` : "",
+      j.status === "done" && j.kind === "download" && j.files.length === 1 ? `<button class="chip-btn accent" data-subs="${esc(j.files[0])}">→ SRT</button>` : "",
+      j.status === "done" && last ? `<button class="chip-btn" data-reveal="${esc(last)}">Показати</button>` : "",
+    ].join("");
+    return `
+    <div class="job ${j.status}">
+      <div class="job-icon">${ICONS[j.kind] || ICONS.download}</div>
+      <div class="job-body">
+        <div class="job-top">
+          <span class="job-title" title="${esc(j.title)}">${esc(j.title)}</span>
+          <span class="tag">${jobTag(j)}</span>
+          <span class="tag ${j.status}">${j.status === "running" ? (runningText[j.kind] || statusText.running) : statusText[j.status] || j.status}</span>
+          <div class="job-actions">${actions}</div>
+        </div>
+        <div class="bar"><div style="width:${j.percent}%"></div></div>
+        <div class="job-info num">
+          <span>${j.percent.toFixed(1)}%</span>
+          ${j.item ? `<span>відео ${esc(j.item)}</span>` : ""}
+          ${j.speed ? `<span>${esc(j.speed)}</span>` : ""}
+          ${j.eta ? `<span>залишилось ${esc(j.eta)}</span>` : ""}
+          ${j.files.length > 1 ? `<span>файлів: ${j.files.length}</span>` : ""}
+          ${j.current && j.current !== j.title ? `<span>${esc(j.current)}</span>` : ""}
+        </div>
+        ${j.note ? `<div class="job-note">${esc(j.note)}</div>` : ""}
+        ${j.error ? `<div class="job-err">${esc(j.error)}${/Налаштування/.test(j.error) ? ' <button class="chip-btn accent" data-goto="settings">Налаштування</button>' : ""}</div>` : ""}
+      </div>
+    </div>`;
+  }).join("") : '<div class="empty">Черга порожня</div>';
+  document.querySelectorAll("[data-cancel]").forEach((b) => b.addEventListener("click", async () => {
+    try { await api("/api/cancel", { id: b.dataset.cancel }); loadJobs(); } catch (e) { toast(e.message); }
+  }));
+  document.querySelectorAll("#jobs [data-reveal]").forEach((b) => b.addEventListener("click", () => openFile(b.dataset.reveal, true)));
+  document.querySelectorAll("#jobs [data-convert]").forEach((b) => b.addEventListener("click", () => sendTo("convert", b.dataset.convert)));
+  document.querySelectorAll("#jobs [data-subs]").forEach((b) => b.addEventListener("click", () => sendTo("subs", b.dataset.subs)));
+  bindGoto($("#jobs"));
+  const setupDone = state.jobs.filter((j) => j.kind === "setup" && j.status === "done").map((j) => j.id).join();
+  if (setupDone && setupDone !== state.seenSetup) {
+    state.seenSetup = setupDone;
+    loadStatus();
+    loadAsr(true);
+  }
+  if (state.lastActive && !active) loadFiles();
+  state.lastActive = active;
+}
+$("#clear-btn").addEventListener("click", async () => { await api("/api/clear", {}); loadJobs(); });
+
+// ---------- downloads ----------
+async function loadFiles() {
+  try { state.files = await api("/api/downloads"); } catch { return; }
+  $("#badge-downloads").textContent = state.files.length || "";
+  renderFiles();
+}
+function renderFiles() {
+  const q = $("#search").value.trim().toLowerCase();
+  const list = q ? state.files.filter((f) => (f.name + " " + f.folder).toLowerCase().includes(q)) : state.files;
+  $("#files").innerHTML = list.length ? `<div class="files">${list.map((f, i) => {
+    const type = f.image ? "image" : f.video ? "video" : "audio";
+    return `
+    <div class="file">
+      <div class="ftype ${type}">${ICONS[type]}</div>
+      <div class="file-main">
+        <div class="file-name" title="${esc(f.name)}">${esc(f.name)}</div>
+        <div class="file-sub num">${esc(f.folder)} · ${fmtSize(f.size)} · ${new Date(f.mtime * 1000).toLocaleString("uk-UA", { dateStyle: "medium", timeStyle: "short" })}</div>
+      </div>
+      ${f.video ? `<button class="chip-btn" data-i="${i}" data-act="convert">→ MP4</button>` : ""}
+      ${f.media ? `<button class="chip-btn" data-i="${i}" data-act="subs">→ SRT</button>` : ""}
+      <button class="chip-btn" data-i="${i}" data-act="open">Відкрити</button>
+      <button class="chip-btn" data-i="${i}" data-act="reveal">У Finder</button>
+    </div>`;
+  }).join("")}</div>` : `<div class="empty">${q ? "Нічого не знайдено" : "Тут з'являться завантажені файли"}</div>`;
+  document.querySelectorAll("#files [data-act]").forEach((b) =>
+    b.addEventListener("click", () => b.dataset.act === "convert" || b.dataset.act === "subs"
+      ? sendTo(b.dataset.act, list[+b.dataset.i].path)
+      : openFile(list[+b.dataset.i].path, b.dataset.act === "reveal")));
+  pickers.forEach((p) => p.renderPick());
+}
+$("#search").addEventListener("input", renderFiles);
+async function openFile(path, reveal) {
+  try { await api("/api/open", { path, reveal }); } catch (e) { toast(e.message); }
+}
+
+// ---------- file pickers (drop from Finder, native dialog, path, downloaded list) ----------
+const pickers = [];
+function makePicker({ mount, view, probeUrl, describe, filter, emptyPick, onChange }) {
+  const p = { items: [], onChange };
+  $(mount).innerHTML = `
+    <div class="card">
+      <h3>Файли</h3>
+      <div class="dropzone">${ICONS.drop}Перетягни сюди файли або папку з Finder
+        <div class="row"><button class="btn primary" data-role="choose">Обрати з диска…</button></div>
+      </div>
+      <div data-role="selected"></div>
+      <div class="pathrow">
+        <input class="field-input" data-role="path" placeholder="або встав шлях до файлу">
+        <button class="btn" data-role="add">Додати</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:4px"><h3 style="margin:0">Із завантаженого</h3><input class="field-input" data-role="search" placeholder="Пошук…" style="width:190px;height:30px"></div>
+      <div class="pick" data-role="pick"></div>
+    </div>`;
+  const el = (role) => $(mount).querySelector(`[data-role=${role}]`);
+  p.add = async (path) => {
+    path = String(path || "").trim();
+    if (!path || p.items.some((s) => s.path === path)) return true;
+    const item = { path, name: path.split(/[\\/]/).pop(), probe: null, error: "" };
+    p.items.push(item);
+    p.render();
+    try { item.probe = await api(probeUrl, { path }); } catch (e) { item.error = e.message; }
+    p.render();
+    return !item.error;
+  };
+  p.addMany = async (paths) => { for (const path of paths) await p.add(path); };
+  p.ready = () => p.items.filter((s) => s.probe).map((s) => s.path);
+  p.clear = () => { p.items = []; p.render(); };
+  p.render = () => {
+    const box = el("selected");
+    box.innerHTML = p.items.map((s, i) => `
+      <div class="sel">
+        <div class="sel-main">
+          <div class="sel-name" title="${esc(s.path)}">${esc(s.name)}</div>
+          <div class="sel-sub">${s.error ? `<span style="color:#ffb4bb">${esc(s.error)}</span>` : s.probe ? describe(s.probe) : "читаю…"}</div>
+        </div>
+        <button class="chip-btn" data-rm="${i}">✕</button>
+      </div>`).join("");
+    box.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { p.items.splice(+b.dataset.rm, 1); p.render(); }));
+    // Skip the first render: the caller has not stored the picker yet, so its handler cannot use it.
+    if (p.onChange && p.live) p.onChange();
+  };
+  p.renderPick = () => {
+    const q = el("search").value.trim().toLowerCase();
+    const list = state.files.filter((f) => filter(f) && (!q || (f.name + " " + f.folder).toLowerCase().includes(q)));
+    el("pick").innerHTML = list.length ? list.map((f, i) => `
+      <div class="sel">
+        <div class="sel-main"><div class="sel-name" title="${esc(f.name)}">${esc(f.name)}</div>
+        <div class="sel-sub">${esc(f.folder)} · ${fmtSize(f.size)}</div></div>
+        <button class="chip-btn accent" data-pick="${i}">＋</button>
+      </div>`).join("") : `<div class="empty" style="padding:18px 0">${q ? "Нічого не знайдено" : emptyPick}</div>`;
+    el("pick").querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => p.add(list[+b.dataset.pick].path)));
+  };
+  el("search").addEventListener("input", p.renderPick);
+  el("add").addEventListener("click", async () => {
+    const raw = el("path").value.trim().replace(/^["']|["']$/g, "");
+    if (await p.add(raw)) el("path").value = "";
+  });
+  el("path").addEventListener("keydown", (e) => { if (e.key === "Enter") el("add").click(); });
+  el("choose").addEventListener("click", async () => {
+    try {
+      const picked = NATIVE ? await nativeCall("choose") : (await api("/api/choose", { prompt: "Обери файли" })).paths;
+      if (!picked || !picked.length) return;
+      const res = NATIVE ? await api("/api/expand", { paths: picked }) : { paths: picked };
+      await p.addMany(res.paths);
+    } catch (e) { toast(e.message); }
+  });
+  onFileDrop($("#view-" + view), async (dropped) => {
+    if (!dropped.length) return;
+    try {
+      const res = await api("/api/locate", { items: dropped });
+      await p.addMany(res.paths);
+      if (res.missing.length) toast(`Не знайшов на диску: ${res.missing.join(", ")}. Скористайся «Обрати з диска…»`);
+      else if (!res.paths.length) toast("У перетягнутому немає відео чи аудіо");
+    } catch (e) { toast(e.message); }
+  });
+  p.render();
+  p.live = true;
+  pickers.push(p);
+  return p;
+}
+
+// In a browser dropped files hide their location, so we send name/size/date and the server finds them.
+// The macOS app intercepts file drops natively and calls window.ytgrabNative.drop with real paths instead.
+function onFileDrop(target, handler) {
+  let depth = 0;
+  target.addEventListener("dragenter", (e) => { e.preventDefault(); depth++; target.classList.add("dragging"); });
+  target.addEventListener("dragleave", () => { if (--depth <= 0) { depth = 0; target.classList.remove("dragging"); } });
+  target.addEventListener("dragover", (e) => e.preventDefault());
+  target.addEventListener("drop", (e) => {
+    e.preventDefault();
+    depth = 0;
+    target.classList.remove("dragging");
+    const out = [];
+    for (const item of e.dataTransfer.items || []) {
+      if (item.kind !== "file") continue;
+      const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+      const file = item.getAsFile();
+      if (!file) continue;
+      out.push({ name: file.name, size: file.size, mtime: file.lastModified, dir: !!(entry && entry.isDirectory) });
+    }
+    handler(out, e.dataTransfer);
+  });
+}
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => e.preventDefault());
+
+function sendTo(view, path) {
+  show(view);
+  (view === "convert" ? conv.picker : subs.picker).add(path);
+}
+
+// ---------- converter ----------
+const conv = { caps: null };
+async function loadCaps() {
+  if (conv.caps) return;
+  try { conv.caps = await api("/api/convert/caps"); } catch { return; }
+  const c = conv.caps;
+  const hw = c.h264_hw || c.hevc_hw;
+  $("#engine").innerHTML = !c.ffmpeg ? "ffmpeg не знайдено: <b>brew install ffmpeg</b>"
+    : `Кодування: <b>${hw ? "апаратне, чип Apple" : "програмне (x264 / x265)"}</b>` +
+      (c.tonemap ? " · HDR→SDR з тонмапінгом" : " · для точного HDR→SDR: <b>brew install ffmpeg-full</b>");
+}
+function describeProbe(p) {
+  const res = p.width && p.height ? `${p.width}×${p.height}` : "";
+  const text = [String(p.vcodec || "?").toUpperCase(), res, p.fps ? Math.round(p.fps) + "fps" : "", fmtDuration(p.duration), p.acodec ? String(p.acodec).toUpperCase() : "без звуку"]
+    .filter(Boolean).join(" · ");
+  return (p.hdr ? '<span class="hdr">HDR</span> ' : "") + esc(text);
+}
+function currentPreset() { return document.querySelector("input[name=preset]:checked").value; }
+function updateConvHint() {
+  document.querySelectorAll(".preset").forEach((l) => l.classList.toggle("on", l.querySelector("input").checked));
+  const probes = conv.picker.items.map((s) => s.probe).filter(Boolean);
+  const preset = currentPreset();
+  const notes = [];
+  if (preset === "h264" && probes.some((p) => p.hdr)) notes.push("Серед вибраних є HDR: H.264 переведе його в SDR. Щоб зберегти HDR, обери HEVC.");
+  if (preset === "h264" && probes.some((p) => Math.min(p.width, p.height) > 2160)) notes.push("H.264 обмежено 4K. Для 8K обери HEVC.");
+  if (preset === "remux" && probes.some((p) => !["h264", "hevc"].includes(p.vcodec))) notes.push("Деякі файли не в H.264/HEVC, їх перепакувати не вийде.");
+  $("#conv-hint").textContent = notes.join(" ");
+  $("#conv-res").disabled = preset === "remux";
+  const ready = conv.picker.ready().length;
+  $("#conv-go").textContent = ready ? `Конвертувати · ${ready}` : "Конвертувати";
+  $("#conv-go").disabled = !ready;
+}
+conv.picker = makePicker({
+  mount: "#conv-files", view: "convert", probeUrl: "/api/probe", describe: describeProbe,
+  filter: (f) => f.video, emptyPick: "Поки немає завантажених відео", onChange: updateConvHint,
+});
+document.querySelectorAll("input[name=preset]").forEach((r) => r.addEventListener("change", updateConvHint));
+updateConvHint();
+$("#conv-go").addEventListener("click", async () => {
+  const paths = conv.picker.ready();
+  if (!paths.length) return;
+  try {
+    const res = await api("/api/convert", { paths, preset: currentPreset(), res: $("#conv-res").value });
+    toast(res.errors.length ? res.errors.join("; ") : `У черзі на конвертацію: ${res.jobs.length}`);
+    conv.picker.clear();
+    show("queue");
+  } catch (e) { toast(e.message); }
+});
+
+// ---------- subtitles ----------
+const subs = { asr: null };
+const ENGINE_TEXT = {
+  parakeet: { title: "Parakeet v3 · найкраще на Маку", desc: "Локально на чипі Apple, безкоштовно й дуже швидко. 25 європейських мов, зокрема українська; мову визначає сам.", size: "≈ 2 ГБ" },
+  whisper: { title: "Whisper turbo · будь-який комп'ютер", desc: "Локально й безкоштовно, 99 мов. Повільніший за Parakeet, зате знає більше мов.", size: "≈ 2 ГБ" },
+  groq: { title: "Groq · хмара, безкоштовний ключ", desc: "Найшвидше, 99 мов. Звук відправляється на сервери Groq. Ключ: <a href=\"https://console.groq.com/keys\" target=\"_blank\" rel=\"noopener\">console.groq.com/keys</a>" },
+};
+async function loadAsr(force) {
+  if (subs.asr && !force) return renderEngines();
+  try { subs.asr = await api("/api/asr"); } catch (e) { return toast(e.message); }
+  const st = subs.asr.settings;
+  $("#sub-lang").innerHTML = subs.asr.languages.map((l) => `<option value="${l.code}">${esc(l.name)}</option>`).join("");
+  $("#sub-lang").value = st.asr_language || "auto";
+  $("#sub-txt").checked = !!st.asr_txt;
+  subs.engine = subs.engine || st.asr_engine;
+  renderEngines();
+}
+function renderEngines() {
+  const a = subs.asr;
+  if (!a) return;
+  const usable = a.engines.filter((e) => e.supported);
+  if (!usable.some((e) => e.key === subs.engine)) subs.engine = (usable[0] || {}).key;
+  $("#sub-engines").innerHTML = a.engines.map((e) => {
+    const t = ENGINE_TEXT[e.key] || { title: e.name, desc: "" };
+    let act = "";
+    if (!e.supported) act = '<span class="sel-sub">Лише для Маків з чипом Apple (M1 і новіші)</span>';
+    else if (e.key === "groq") act = e.installed
+      ? '<span class="ok">✓ ключ збережено</span><button class="chip-btn" data-groq-clear>Змінити</button>'
+      : '<input class="field-input" type="password" data-groq-key placeholder="gsk_…" autocomplete="off"><button class="chip-btn accent" data-groq-save>Зберегти ключ</button>';
+    else act = e.installed ? '<span class="ok">✓ встановлено</span>'
+      : `<button class="chip-btn accent" data-install="${e.key}">Встановити (${t.size}, один раз)</button>`;
+    return `<label class="option ${e.supported ? "" : "off"} ${subs.engine === e.key ? "on" : ""}">
+      <input type="radio" name="asr" value="${e.key}" ${subs.engine === e.key ? "checked" : ""} ${e.supported ? "" : "disabled"}>
+      <div class="option-main"><b>${esc(t.title)}</b><span>${t.desc}</span><div class="option-act">${act}</div></div></label>`;
+  }).join("");
+  $("#sub-engines").querySelectorAll("input[name=asr]").forEach((r) => r.addEventListener("change", () => { subs.engine = r.value; renderEngines(); }));
+  $("#sub-engines").querySelectorAll("[data-install]").forEach((b) => b.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    try { await api("/api/asr/install", { engine: b.dataset.install }); toast("Встановлюю… прогрес у Черзі"); show("queue"); }
+    catch (e) { toast(e.message); }
+  }));
+  const save = $("#sub-engines").querySelector("[data-groq-save]");
+  if (save) save.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    const key = $("#sub-engines").querySelector("[data-groq-key]").value.trim();
+    if (!key) return toast("Встав ключ Groq");
+    try { await api("/api/settings", { groq_api_key: key }); toast("Ключ збережено"); loadAsr(true); } catch (e) { toast(e.message); }
+  });
+  const clear = $("#sub-engines").querySelector("[data-groq-clear]");
+  if (clear) clear.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    try { await api("/api/settings", { groq_api_key: "" }); loadAsr(true); } catch (e) { toast(e.message); }
+  });
+  updateSubsHint();
+}
+function updateSubsHint() {
+  if (!subs.asr) return;
+  const engine = (subs.asr.engines || []).find((e) => e.key === subs.engine);
+  const notes = [];
+  $("#sub-lang").disabled = subs.engine === "parakeet";
+  if (subs.engine === "parakeet") notes.push("Parakeet визначає мову сам.");
+  if (engine && !engine.installed) notes.push(subs.engine === "groq" ? "Спершу збережи ключ Groq." : "Спершу встанови рушій кнопкою вище.");
+  $("#sub-hint").textContent = notes.join(" ");
+  const ready = subs.picker.ready().length;
+  $("#sub-go").textContent = ready ? `Створити субтитри · ${ready}` : "Створити субтитри";
+  $("#sub-go").disabled = !ready || !engine || !engine.installed;
+}
+function describeMedia(p) {
+  return esc([p.has_video ? "відео" : "аудіо", fmtDuration(p.duration), p.acodec ? String(p.acodec).toUpperCase() : ""].filter(Boolean).join(" · "));
+}
+subs.picker = makePicker({
+  mount: "#sub-files", view: "subs", probeUrl: "/api/media-probe", describe: describeMedia,
+  filter: (f) => f.media, emptyPick: "Поки немає завантажених файлів", onChange: () => updateSubsHint(),
+});
+$("#sub-go").addEventListener("click", async () => {
+  const paths = subs.picker.ready();
+  if (!paths.length) return;
+  try {
+    const res = await api("/api/transcribe", { paths, engine: subs.engine, language: $("#sub-lang").value, txt: $("#sub-txt").checked });
+    toast(res.errors.length ? res.errors.join("; ") : `У черзі на розпізнавання: ${res.jobs.length}`);
+    subs.picker.clear();
+    show("queue");
+  } catch (e) { toast(e.message); }
+});
+
+// ---------- download view: drop links or .txt lists ----------
+function extractUrls(text) {
+  return [...new Set((String(text || "").match(/https?:\/\/[^\s"'<>]+/g) || []).map((u) => u.replace(/[),.;]+$/, "")))];
+}
+function useUrls(urls) {
+  if (!urls.length) return toast("Не знайшов посилань");
+  if (urls.length === 1) {
+    $("#url").value = urls[0];
+    highlightPlatform();
+    $("#url-form").requestSubmit();
+    return;
+  }
+  $("#batch").hidden = false;
+  const current = $("#batch-urls").value.trim();
+  $("#batch-urls").value = (current ? current + "\n" : "") + urls.join("\n");
+  toast(`Додано посилань: ${urls.length}. Обери якість і натисни «Завантажити все»`);
+}
+async function urlsFromFiles(files) {
+  const texts = await Promise.all([...files].filter((f) => /\.(txt|csv|md)$/i.test(f.name) || f.type.startsWith("text/")).map((f) => f.text()));
+  return extractUrls(texts.join("\n"));
+}
+onFileDrop($("#view-home"), async (_files, dt) => {
+  let urls = [];
+  if (dt.files && dt.files.length) urls = await urlsFromFiles(dt.files);
+  if (!urls.length) urls = extractUrls(dt.getData("text/uri-list") || dt.getData("text/plain"));
+  useUrls(urls);
+});
+$("#txt-link").addEventListener("click", (e) => { e.preventDefault(); $("#txt-input").click(); });
+$("#txt-input").addEventListener("change", async () => {
+  useUrls(await urlsFromFiles($("#txt-input").files));
+  $("#txt-input").value = "";
+});
+
+// ---------- boot ----------
+loadStatus().catch((e) => toast(e.message));
+loadJobs();
+loadFiles();
+setInterval(() => {
+  if (state.jobs.some((j) => j.status === "running" || j.status === "queued") || $("#view-queue").classList.contains("active")) loadJobs();
+}, 1000);
+</script>
+</body>
+</html>
