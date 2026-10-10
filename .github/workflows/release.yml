@@ -5,9 +5,18 @@ on:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Версія релізу, напр. 1.0.0 (порожньо — лише збірка)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
+
+env:
+  # A manual run with a version publishes a release; tag pushes still work too.
+  VERSION: ${{ inputs.version || github.ref_name }}
 
 jobs:
   build:
@@ -19,7 +28,7 @@ jobs:
         run: python3 -m py_compile app/*.py
 
       - name: Build app, DMG and ZIP
-        run: bash macos/make-release.sh "${GITHUB_REF_NAME#v}"
+        run: bash macos/make-release.sh "${VERSION#v}"
 
       - name: Smoke test the bundled engine
         run: |
@@ -42,9 +51,10 @@ jobs:
           path: dist/*
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.version != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/YT-Grab.dmg dist/YT-Grab.zip dist/SHA256SUMS.txt \
-            --title "YT Grab $GITHUB_REF_NAME" --notes-file macos/release-notes.md
+          TAG="v${VERSION#v}"
+          gh release create "$TAG" dist/YT-Grab.dmg dist/YT-Grab.zip dist/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --title "YT Grab $TAG" --notes-file macos/release-notes.md
