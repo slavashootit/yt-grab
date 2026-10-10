@@ -313,7 +313,8 @@ def build_download_cmd(url: str, quality: str, use_archive: bool, cfg: dict, fil
         name = ".archive-audio.txt" if quality == "audio" else ".archive.txt"
         cmd += ["--download-archive", os.path.join(out_dir, name)]
     if quality == "audio":
-        cmd += ["--format", "ba[ext=m4a]/ba/b", "--extract-audio", "--audio-format", "m4a"]
+        # Best available source (usually Opus) -> MP3 320 kbps, which every player and editor accepts.
+        cmd += ["--format", "ba/b", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "320K"]
     else:
         if quality == "best":
             cmd += ["--format", "bv*+ba/b"]

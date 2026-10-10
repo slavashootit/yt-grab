@@ -316,7 +316,7 @@
       <div class="row">
         <select class="field-input" id="batch-quality">
           <option value="best">Найкраща якість</option><option value="2160">До 4K</option><option value="1440">До 1440p</option>
-          <option value="1080">До 1080p</option><option value="720">До 720p</option><option value="audio">Лише аудіо</option>
+          <option value="1080">До 1080p</option><option value="720">До 720p</option><option value="audio">Лише аудіо (MP3)</option>
         </select>
         <label class="check"><input type="checkbox" data-mp4> Одразу в MP4</label>
         <button class="btn primary" id="batch-go">Завантажити все</button>
@@ -666,14 +666,14 @@ function renderResult() {
     const cards = [qCard("best", "Найкраща", top ? `${resName(top.height)}${top.size ? " · " + fmtSize(top.size) : ""}` : "", "best")]
       .concat(info.qualities.map((q) => qCard(q.height, resName(q.height),
         [q.height >= 1440 ? q.height + "p" : "", fmtSize(q.size), q.fps && q.fps > 30 ? Math.round(q.fps) + "fps" : ""].filter(Boolean).join(" · "))))
-      .concat([qCard("audio", "Аудіо", fmtSize(info.audio_size) || "m4a", "audio")]);
+      .concat([qCard("audio", "Аудіо", "MP3 320 kbps", "audio")]);
     right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info)}<div class="qgrid">${cards.join("")}</div>${mp4Toggle()}`;
   } else {
     const entries = (info.entries || []).map((e, i) =>
       `<div class="entry"><span class="n num">${i + 1}</span><span>${esc(e.title || "—")}</span><span class="d num">${fmtDuration(e.duration)}</span></div>`).join("");
     const more = info.count > (info.entries || []).length ? `<div class="entry"><span class="n"></span><span class="muted">…і ще ${info.count - info.entries.length}</span></div>` : "";
     const cards = [qCard("best", "Усе в найкращій", `${info.count} відео`, "best"), qCard(2160, "До 4K"), qCard(1440, "До 2K"),
-      qCard(1080, "До 1080p"), qCard(720, "До 720p"), qCard("audio", "Лише аудіо", "", "audio")];
+      qCard(1080, "До 1080p"), qCard(720, "До 720p"), qCard("audio", "Лише аудіо", "MP3 320 kbps", "audio")];
     if (info.can_photos) cards.push('<button class="q photos" id="photos-all"><b>Усе з поста, разом з фото</b><span>через gallery-dl</span></button>');
     right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info, info.count + " відео")}<div class="qgrid">${cards.join("")}</div>${mp4Toggle()}<div class="entries">${entries}${more}</div>`;
   }
