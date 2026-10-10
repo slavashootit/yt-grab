@@ -359,13 +359,15 @@ class Job:
         self.created = time.time()
         self.proc: subprocess.Popen | None = None
         self.cancelled = False
+        self.parent: Job | None = None  # the download an automatic MP4 conversion belongs to
+        self.converting = 0  # automatic MP4 conversions still running for this download
 
     def to_json(self) -> dict:
         return {
             "id": self.id, "kind": self.kind, "note": self.note, "url": self.url, "mp4": self.mp4, "title": self.title, "quality": self.quality,
             "status": self.status, "percent": self.percent, "speed": self.speed,
             "eta": self.eta, "item": self.item, "current": self.current, "error": self.error,
-            "files": self.files, "created": self.created,
+            "files": self.files, "created": self.created, "converting": self.converting,
         }
 
 
@@ -452,7 +454,7 @@ def queue_mp4(job: Job, cfg: dict) -> None:
             if Path(path).suffix.lower() == ".mp4" and preset == "remux":
                 skipped += 1  # already an MP4 in H.264/HEVC
                 continue
-            start_convert(path, preset, "source", replace=True)
+            start_convert(path, preset, "source", replace=True, parent=job)
             queued += 1
         except ValueError as exc:
             job.note = f"Не вдалося поставити в MP4: {exc}"
@@ -507,12 +509,16 @@ def run_convert(job: Job) -> None:
     with convert_slots:
         if job.cancelled:
             job.status = "cancelled"
+            report_to_parent(job, Path(job.info["path"]), Path(job.info["path"]))
             return
         info = job.info
         src = Path(info["path"])
         dst = converter.output_path(info["path"], job.quality)
+        keep_original = bool(load_settings().get("keep_original"))
         if job.replace and src.suffix.lower() != ".mp4" and not src.with_suffix(".mp4").exists():
             dst = src.with_suffix(".mp4")  # "title [id].2160p.mkv" -> "title [id].2160p.mp4"
+        elif job.replace and src.suffix.lower() == ".mp4" and not keep_original:
+            dst = src  # an AV1/VP9 .mp4 is re-encoded and takes the original's place
         part = dst.with_name(dst.name[: -len(".mp4")] + ".part.mp4")
         hardware = True
         try:
@@ -532,7 +538,7 @@ def run_convert(job: Job) -> None:
                 part.rename(dst)
                 job.files, job.status, job.percent, job.eta, job.speed = [str(dst)], "done", 100.0, "", ""
                 job.current = dst.name
-                if job.replace and not load_settings().get("keep_original"):
+                if job.replace and not keep_original and src != dst:
                     src.unlink(missing_ok=True)
             else:
                 job.status, job.error = "error", err or f"ffmpeg завершився з кодом {code}"
@@ -542,9 +548,28 @@ def run_convert(job: Job) -> None:
             job.proc = None
             if job.status != "done":
                 part.unlink(missing_ok=True)
+            report_to_parent(job, src, dst)
 
 
-def start_convert(path: str, preset: str, res: str, replace: bool = False) -> Job:
+def report_to_parent(job: Job, src: Path, dst: Path) -> None:
+    """Point the download's card at the new MP4 so its buttons (→ SRT, Показати) use it."""
+    parent = job.parent
+    if parent is None:
+        return
+    with jobs_lock:
+        parent.converting = max(0, parent.converting - 1)
+        if job.status == "done":
+            parent.files = [str(dst) if Path(f).resolve() == src.resolve() else f for f in parent.files]
+            if str(dst) not in parent.files:
+                parent.files.append(str(dst))
+        failed = job.status == "error"
+        if failed:
+            parent.note = f"MP4 не вдався: {job.error[:160]}"
+        elif parent.converting == 0 and not parent.note.startswith("MP4 не вдався"):
+            parent.note = "Готово в MP4" if job.status == "done" else ""
+
+
+def start_convert(path: str, preset: str, res: str, replace: bool = False, parent: Job | None = None) -> Job:
     src = Path(os.path.expanduser(path.strip())).resolve()
     if not src.is_file():
         raise ValueError(f"Файл не знайдено: {path}")
@@ -556,6 +581,7 @@ def start_convert(path: str, preset: str, res: str, replace: bool = False) -> Jo
     label = converter.label_for(info, preset, res)
     job = Job(str(src), src.name, label, False, kind="convert")
     job.info, job.preset, job.res, job.replace = info, preset, res, replace
+    job.parent = parent
     if preset == "remux":
         converter.build_command(info, preset, res, "/dev/null", False)  # validate codecs up front
     with jobs_lock:
@@ -564,6 +590,8 @@ def start_convert(path: str, preset: str, res: str, replace: bool = False) -> Jo
                     and other.url == job.url and other.quality == label):
                 raise ValueError("Цей файл уже конвертується")
         jobs[job.id] = job
+        if parent is not None:
+            parent.converting += 1  # counted before the thread starts, so a fast finish can't race it
     threading.Thread(target=run_convert, args=(job,), daemon=True).start()
     return job
 

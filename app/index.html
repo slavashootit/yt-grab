@@ -189,6 +189,7 @@
   .job-actions { display: flex; gap: 6px; flex: none; }
   .job-err { color: #ffb4bb; font-size: 12.5px; margin-top: 6px; word-break: break-word; }
   .job-note { color: var(--warn); font-size: 12.5px; margin-top: 6px; }
+  .job-note.ok { color: var(--ok); }
 
   /* ---------- files ---------- */
   .search { width: 240px; }
@@ -760,11 +761,12 @@ async function loadJobs() {
   $("#badge-subs").textContent = busy("transcribe");
   $("#jobs").innerHTML = state.jobs.length ? state.jobs.map((j) => {
     const last = j.files.length ? j.files[j.files.length - 1] : "";
+    const ready = j.status === "done" && !j.converting;  // wait until the automatic MP4 has replaced the original
     const actions = [
       j.status === "running" || j.status === "queued" ? `<button class="chip-btn" data-cancel="${j.id}">Скасувати</button>` : "",
-      j.status === "done" && j.kind === "download" && j.quality !== "audio" && j.files.length === 1 ? `<button class="chip-btn accent" data-convert="${esc(j.files[0])}">→ MP4</button>` : "",
-      j.status === "done" && j.kind === "download" && j.files.length === 1 ? `<button class="chip-btn accent" data-subs="${esc(j.files[0])}">→ SRT</button>` : "",
-      j.status === "done" && last ? `<button class="chip-btn" data-reveal="${esc(last)}">Показати</button>` : "",
+      ready && j.kind === "download" && j.quality !== "audio" && j.files.length === 1 && !/\.mp4$/i.test(j.files[0]) ? `<button class="chip-btn accent" data-convert="${esc(j.files[0])}">→ MP4</button>` : "",
+      ready && (j.kind === "download" || j.kind === "convert") && j.files.length === 1 ? `<button class="chip-btn accent" data-subs="${esc(j.files[0])}" title="Субтитри й підсумок розмови">→ SRT і підсумок</button>` : "",
+      ready && last ? `<button class="chip-btn" data-reveal="${esc(last)}">Показати</button>` : "",
     ].join("");
     return `
     <div class="job ${j.status}">
@@ -773,7 +775,7 @@ async function loadJobs() {
         <div class="job-top">
           <span class="job-title" title="${esc(j.title)}">${esc(j.title)}</span>
           <span class="tag">${jobTag(j)}</span>
-          <span class="tag ${j.status}">${j.status === "running" ? (runningText[j.kind] || statusText.running) : statusText[j.status] || j.status}</span>
+          ${j.converting ? '<span class="tag running">конвертую</span>' : `<span class="tag ${j.status}">${j.status === "running" ? (runningText[j.kind] || statusText.running) : statusText[j.status] || j.status}</span>`}
           <div class="job-actions">${actions}</div>
         </div>
         <div class="bar"><div style="width:${j.percent}%"></div></div>
@@ -785,7 +787,7 @@ async function loadJobs() {
           ${j.files.length > 1 ? `<span>файлів: ${j.files.length}</span>` : ""}
           ${j.current && j.current !== j.title ? `<span>${esc(j.current)}</span>` : ""}
         </div>
-        ${j.note ? `<div class="job-note">${esc(j.note)}</div>` : ""}
+        ${j.note ? `<div class="job-note${/^Готово/.test(j.note) ? " ok" : ""}">${esc(j.note)}</div>` : ""}
         ${j.error ? `<div class="job-err">${esc(j.error)}${/Налаштування/.test(j.error) ? ' <button class="chip-btn accent" data-goto="settings">Налаштування</button>' : ""}</div>` : ""}
       </div>
     </div>`;
@@ -827,7 +829,7 @@ function renderFiles() {
         <div class="file-sub num">${esc(f.folder)} · ${fmtSize(f.size)} · ${new Date(f.mtime * 1000).toLocaleString("uk-UA", { dateStyle: "medium", timeStyle: "short" })}</div>
       </div>
       ${f.video ? `<button class="chip-btn" data-i="${i}" data-act="convert">→ MP4</button>` : ""}
-      ${f.media ? `<button class="chip-btn" data-i="${i}" data-act="subs">→ SRT</button>` : ""}
+      ${f.media ? `<button class="chip-btn" data-i="${i}" data-act="subs" title="Субтитри й підсумок розмови">→ SRT і підсумок</button>` : ""}
       <button class="chip-btn" data-i="${i}" data-act="open">Відкрити</button>
       <button class="chip-btn" data-i="${i}" data-act="reveal">У Finder</button>
     </div>`;
