@@ -51,7 +51,7 @@ jobs:
           path: dist/*
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.version != ''
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.version != '')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
