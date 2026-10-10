@@ -9,10 +9,19 @@
   YouTube, Instagram, TikTok, Facebook, X, Vimeo та ще понад тисяча сайтів.
 </p>
 
-<p align="center">
-  <a href="https://github.com/slavashootit/yt-grab/releases/latest/download/YT-Grab.dmg"><b>⬇️ Завантажити для Mac (.dmg)</b></a>
-  &nbsp;·&nbsp; macOS 12+ · Apple Silicon і Intel
-</p>
+<p align="center">macOS 12+ · Apple Silicon і Intel · безкоштовно</p>
+
+## Встановити — обери один спосіб
+
+**⚡ Одна команда в Терміналі** (без скачування файлів і без попереджень macOS).
+Відкрий Термінал (⌘ + пробіл → «Термінал»), встав і натисни Enter:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/slavashootit/yt-grab/main/install.sh | bash
+```
+
+**⬇️ Або завантаж файл:** [YT-Grab.dmg](https://github.com/slavashootit/yt-grab/releases/latest/download/YT-Grab.dmg) — відкрий і перетягни YT Grab у «Програми»
+(при першому запуску дозволь його в Системних параметрах, [покроково нижче](#варіант-2--файл-dmg)).
 
 <p align="center">
   <img src="docs/home.png" width="820" alt="YT Grab">
@@ -85,7 +94,7 @@ Premiere, DaVinci, CapCut і плеєри підхоплюють самі.
 </td></tr>
 </table>
 
-## Встановлення
+## Встановлення докладно
 
 ### Варіант 1 — одна команда (найпростіше)
 Відкрий **Термінал** (⌘ + пробіл → «Термінал») і встав:
