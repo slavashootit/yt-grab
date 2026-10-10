@@ -28,6 +28,8 @@ import urllib.request
 import converter
 import photos
 import sites
+import summarize
+import summary_prompts
 import transcribe
 
 APP_DIR = Path(__file__).resolve().parent
@@ -61,6 +63,8 @@ DEFAULT_SETTINGS = {
     "auto_mp4": True,  # most users want an editor-friendly MP4 right away
     "mp4_codec": "auto",
     "keep_original": False,
+    "summary": False,
+    "summary_lang": "uk",
 }
 
 settings_lock = threading.Lock()
@@ -116,6 +120,12 @@ def save_settings(new: dict) -> dict:
             data["mp4_codec"] = new["mp4_codec"]
         if "keep_original" in new:
             data["keep_original"] = bool(new["keep_original"])
+        if "summary" in new:
+            data["summary"] = bool(new["summary"])
+        if "summary_lang" in new:
+            if new["summary_lang"] not in dict(summarize.LANGUAGES):
+                raise ValueError("Невідома мова підсумку")
+            data["summary_lang"] = new["summary_lang"]
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         SETTINGS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
         return data
@@ -791,8 +801,11 @@ def run_transcription(job: Job) -> None:
                 txt.write_text(transcribe.to_text(result), "utf-8")
                 job.files.append(str(txt))
             lang = result.get("language")
+            done_text = f"{len(cues)} титрів" + (f" · мова: {lang}" if lang else "")
+            if job.want_summary and not job.cancelled:
+                write_summary(job, result, cfg, src)
             job.status, job.percent, job.eta = "done", 100.0, ""
-            job.current = f"{len(cues)} титрів" + (f" · мова: {lang}" if lang else "")
+            job.current = done_text + (" · є підсумок" if any(f.endswith("підсумок.md") for f in job.files) else "")
         except Exception as exc:  # surface any engine failure in the UI
             if job.cancelled:
                 job.status = "cancelled"
@@ -803,7 +816,38 @@ def run_transcription(job: Job) -> None:
             shutil.rmtree(workdir, ignore_errors=True)
 
 
-def start_transcription(path: str, engine: str, language: str, want_txt: bool) -> Job:
+def write_summary(job: Job, result: dict, cfg: dict, path: str) -> None:
+    """Add "<name> — підсумок.md"; a failed summary never discards the subtitles."""
+    src = Path(path)
+    try:
+        engine = summarize.pick_engine(cfg)
+        job.current, job.percent, job.eta = "пишу підсумок", 0.0, ""
+        transcript = summary_prompts.transcript_text(result)
+        language = cfg.get("summary_lang", "uk")
+
+        def progress(p: float) -> None:
+            job.percent = p
+
+        if engine == "local":
+            def register(proc: subprocess.Popen) -> None:
+                job.proc = proc
+                if job.cancelled:
+                    proc.terminate()
+
+            body = summarize.run_local(transcript, language, src.stem, progress, register)
+            model = summarize.LOCAL_MODEL_NAME
+        else:
+            body = summarize.run_groq(transcript, language, src.stem, cfg.get("groq_api_key", ""), progress)
+            model = f"Groq · {summarize.GROQ_MODEL}"
+        out = transcribe.unique_path(str(src), " — підсумок.md")
+        out.write_text(summary_prompts.document(body, src.stem, src.name, model, time.strftime("%Y-%m-%d")), "utf-8")
+        job.files.append(str(out))
+    except Exception as exc:  # keep the finished subtitles; explain what went wrong with the summary
+        if not job.cancelled:
+            job.note = f"Субтитри готові, але підсумок не вдався: {exc}"
+
+
+def start_transcription(path: str, engine: str, language: str, want_txt: bool, want_summary: bool = False) -> Job:
     src = Path(os.path.expanduser(path.strip())).resolve()
     if not src.is_file():
         raise ValueError(f"Файл не знайдено: {path}")
@@ -814,8 +858,10 @@ def start_transcription(path: str, engine: str, language: str, want_txt: bool) -
     if language not in dict(transcribe.LANGUAGES):
         raise ValueError("Невідома мова")
     info = transcribe.media_probe(str(src))
-    job = Job(str(src), src.name, transcribe.ENGINES[engine]["name"], False, kind="transcribe")
+    label = transcribe.ENGINES[engine]["name"] + (" + підсумок" if want_summary else "")
+    job = Job(str(src), src.name, label, False, kind="transcribe")
     job.info, job.engine, job.language, job.want_txt = info, engine, language, want_txt
+    job.want_summary = want_summary
     with jobs_lock:
         for other in jobs.values():
             if other.kind == "transcribe" and other.status in ("queued", "running") and other.url == job.url:
@@ -1084,7 +1130,7 @@ class Handler(BaseHTTPRequestHandler):
             cfg = load_settings()
             self._send_json({"engines": transcribe.engines_status(cfg), "apple_silicon": transcribe.is_apple_silicon(),
                              "languages": [{"code": c, "name": n} for c, n in transcribe.LANGUAGES],
-                             "settings": public_settings(cfg)})
+                             "settings": public_settings(cfg), "summary": summarize.status(cfg)})
         else:
             self._send_json({"error": "not found"}, HTTPStatus.NOT_FOUND)
 
@@ -1137,6 +1183,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(public_settings(save_settings(data)))
             elif path == "/api/asr/install":
                 self._send_json(start_asr_setup(str(data.get("engine", ""))).to_json())
+            elif path == "/api/summary/install":
+                python = find_python() or sys.executable
+
+                def finish_summary(job: Job) -> None:
+                    summarize.mark_ready()
+                    job.current = "Qwen3-4B готовий"
+
+                self._send_json(start_steps("Встановлення Qwen3-4B для підсумків",
+                                            lambda: summarize.setup_steps(python), finish_summary).to_json())
             elif path == "/api/media-probe":
                 src = Path(os.path.expanduser(str(data.get("path", "")).strip())).resolve()
                 if not src.is_file():
@@ -1150,11 +1205,15 @@ class Handler(BaseHTTPRequestHandler):
                 engine = str(data.get("engine") or cfg["asr_engine"])
                 language = str(data.get("language") or cfg["asr_language"])
                 want_txt = bool(data.get("txt", cfg["asr_txt"]))
-                save_settings({"asr_engine": engine, "asr_language": language, "asr_txt": want_txt})
+                want_summary = bool(data.get("summary", cfg.get("summary")))
+                if want_summary:
+                    summarize.pick_engine(cfg)  # fail fast with a clear message before any work starts
+                save_settings({"asr_engine": engine, "asr_language": language, "asr_txt": want_txt,
+                               "summary": want_summary})
                 created, errors = [], []
                 for item in paths:
                     try:
-                        created.append(start_transcription(str(item), engine, language, want_txt).to_json())
+                        created.append(start_transcription(str(item), engine, language, want_txt, want_summary).to_json())
                     except ValueError as exc:
                         errors.append(f"{Path(str(item)).name}: {exc}")
                 if not created and errors:

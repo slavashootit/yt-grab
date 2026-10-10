@@ -27,6 +27,7 @@
 - **Кілька посилань одразу** — вставити списком, перетягнути з браузера або з `.txt`.
 - **Конвертер у MP4** — H.264 для будь-яких програм, HEVC для 4K/8K і HDR, або швидке перепакування без втрат.
 - **Субтитри з відео (Video → SRT)** — локально й безкоштовно через NVIDIA Parakeet або Whisper, чи через Groq у хмарі. Українська, англійська та десятки інших мов.
+- **Підсумок розмови** — разом із субтитрами робить `.md` з головними думками, ключовими моментами з таймкодами й домовленостями. Локально на Маку (Qwen3-4B, без реєстрацій) або через Groq.
 - **Перетягни з Finder** — кілька файлів або цілу папку в конвертер чи субтитри.
 
 | Конвертер | Субтитри |
@@ -57,6 +58,9 @@ YT Grab сам докачає все, що йому потрібно (Python, yt
 
 Для субтитрів обери рушій у розділі «Субтитри» й натисни «Встановити» — модель (~2 ГБ) завантажиться один раз.
 Для Groq потрібен лише безкоштовний ключ з [console.groq.com/keys](https://console.groq.com/keys).
+
+Для підсумку розмови постав галочку «Також підсумок» і натисни «Встановити Qwen3-4B» (≈2,3 ГБ, один раз) — модель працює прямо на Маку з чипом Apple,
+без реєстрацій, ключів і інтернету. На Intel-Маках підсумок робиться через Groq.
 
 ## Якщо щось не качає
 - **Налаштування → Оновити компоненти.** Сайти часто змінюються, оновлення yt-dlp лікує більшість проблем.
@@ -91,6 +95,7 @@ YT Grab стоїть на плечах відкритих проєктів:
 [Deno](https://deno.com) ·
 [parakeet-mlx](https://github.com/senstella/parakeet-mlx) і NVIDIA Parakeet ·
 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) ·
+[MLX LM](https://github.com/ml-explore/mlx-lm) і [Qwen3](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507) ·
 [Groq](https://groq.com).
 
 ## Ліцензія
@@ -98,6 +103,6 @@ YT Grab стоїть на плечах відкритих проєктів:
 
 ---
 
-<sub>**English:** YT Grab is a free macOS video downloader (YouTube, Instagram, TikTok and 1000+ sites via yt-dlp) with photo-post support, an MP4 converter and local speech-to-text subtitles. Install with
+<sub>**English:** YT Grab is a free macOS video downloader (YouTube, Instagram, TikTok and 1000+ sites via yt-dlp) with photo-post support, an MP4 converter, local speech-to-text subtitles and conversation summaries. Install with
 `curl -fsSL https://raw.githubusercontent.com/slavashootit/yt-grab/main/install.sh | bash` or download the
 [.dmg](https://github.com/slavashootit/yt-grab/releases/latest/download/YT-Grab.dmg). The UI is in Ukrainian.</sub>

@@ -356,14 +356,33 @@ def build_cues(result: dict) -> list[tuple[float, float, str]]:
     return fixed
 
 
+DASHES = ("—", "–", "-")
+# Short words that should not hang at the end of a subtitle line (UA/EN prepositions and conjunctions).
+HANGING = {"і", "й", "та", "а", "в", "у", "з", "із", "зі", "до", "на", "за", "по", "від", "для", "не", "що", "як",
+           "a", "an", "the", "to", "of", "in", "on", "and", "or", "for", "with"}
+
+
 def wrap(text: str) -> str:
     if len(text) <= MAX_LINE:
         return text
-    middle = len(text) // 2
     spaces = [i for i, ch in enumerate(text) if ch == " "]
     if not spaces:
         return text
-    cut = min(spaces, key=lambda i: abs(i - middle))
+
+    def cost(i: int) -> float:
+        first, second = text[:i], text[i + 1:]
+        score = float(max(len(first), len(second)))  # balanced lines, both within MAX_LINE if possible
+        if max(len(first), len(second)) > MAX_LINE:
+            score += 100
+        if second[:1] in DASHES:  # never start a line with a dash
+            score += 50
+        if first.rsplit(" ", 1)[-1].lower() in HANGING:  # keep short prepositions with the next word
+            score += 12
+        if first[-1:] in ",.;:!?…":  # prefer breaking after punctuation
+            score -= 6
+        return score
+
+    cut = min(spaces, key=cost)
     return text[:cut] + "\n" + text[cut + 1:]
 
 

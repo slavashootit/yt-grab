@@ -387,6 +387,17 @@
           <div class="hint" id="sub-hint"></div>
           <label class="check"><input type="checkbox" id="sub-txt"> Також .txt — суцільний текст без таймінгів</label>
         </div>
+        <div class="card">
+          <h3>Підсумок розмови</h3>
+          <label class="check"><input type="checkbox" id="sub-sum"> Також підсумок (.md): головне, ключові моменти з таймкодами, домовленості</label>
+          <div id="sum-box">
+            <div class="row" style="margin:12px 0 10px">
+              <span class="muted">Мова підсумку</span>
+              <select class="field-input" id="sum-lang"></select>
+            </div>
+            <div class="option-act" id="sum-engine"></div>
+          </div>
+        </div>
         <button class="btn primary big block" id="sub-go">Створити субтитри</button>
       </div>
     </div>
@@ -1013,6 +1024,9 @@ async function loadAsr(force) {
   $("#sub-lang").innerHTML = subs.asr.languages.map((l) => `<option value="${l.code}">${esc(l.name)}</option>`).join("");
   $("#sub-lang").value = st.asr_language || "auto";
   $("#sub-txt").checked = !!st.asr_txt;
+  $("#sub-sum").checked = !!st.summary;
+  $("#sum-lang").innerHTML = subs.asr.summary.languages.map((l) => `<option value="${l.code}">${esc(l.name)}</option>`).join("");
+  $("#sum-lang").value = st.summary_lang || "uk";
   subs.engine = subs.engine || st.asr_engine;
   renderEngines();
 }
@@ -1052,8 +1066,38 @@ function renderEngines() {
     ev.preventDefault();
     try { await api("/api/settings", { groq_api_key: "" }); loadAsr(true); } catch (e) { toast(e.message); }
   });
+  renderSummary();
   updateSubsHint();
 }
+function summaryReady() {
+  const s = subs.asr && subs.asr.summary;
+  return !!s && (s.local_installed || s.groq);
+}
+function renderSummary() {
+  const s = subs.asr.summary;
+  $("#sum-box").hidden = !$("#sub-sum").checked;
+  let html;
+  if (s.local_installed) html = '<span class="ok">✓ Qwen3-4B встановлено</span><span class="sel-sub">локально на Маку: без інтернету, реєстрацій і лімітів</span>';
+  else if (s.local_supported) html = `<button class="chip-btn accent" id="sum-install">Встановити Qwen3-4B (≈ 2,3 ГБ, один раз)</button>
+    <span class="sel-sub">${s.groq ? "Поки не встановлено — піде через Groq з твоїм ключем." : "Без реєстрацій: модель працює прямо на Маку."}</span>`;
+  else html = s.groq ? '<span class="ok">✓ через Groq</span><span class="sel-sub">Llama 3.3 70B, той самий безкоштовний ключ</span>'
+    : '<span class="sel-sub">Локальний підсумок — лише на Маках з чипом Apple. Тут потрібен ключ Groq (вище).</span>';
+  $("#sum-engine").innerHTML = html;
+  const btn = $("#sum-install");
+  if (btn) btn.addEventListener("click", async () => {
+    try { await api("/api/summary/install", {}); toast("Встановлюю Qwen3… прогрес у Черзі"); show("queue"); }
+    catch (e) { toast(e.message); }
+  });
+}
+$("#sub-sum").addEventListener("change", () => {
+  if (!subs.asr) return;
+  renderSummary();
+  updateSubsHint();
+  api("/api/settings", { summary: $("#sub-sum").checked }).catch(() => {});
+});
+$("#sum-lang").addEventListener("change", () => {
+  api("/api/settings", { summary_lang: $("#sum-lang").value }).catch((e) => toast(e.message));
+});
 function updateSubsHint() {
   if (!subs.asr) return;
   const engine = (subs.asr.engines || []).find((e) => e.key === subs.engine);
@@ -1061,10 +1105,13 @@ function updateSubsHint() {
   $("#sub-lang").disabled = subs.engine === "parakeet";
   if (subs.engine === "parakeet") notes.push("Parakeet визначає мову сам.");
   if (engine && !engine.installed) notes.push(subs.engine === "groq" ? "Спершу збережи ключ Groq." : "Спершу встанови рушій кнопкою вище.");
+  const wantSum = $("#sub-sum").checked;
+  if (wantSum && !summaryReady()) notes.push("Для підсумку встанови Qwen3 або збережи ключ Groq.");
   $("#sub-hint").textContent = notes.join(" ");
   const ready = subs.picker.ready().length;
-  $("#sub-go").textContent = ready ? `Створити субтитри · ${ready}` : "Створити субтитри";
-  $("#sub-go").disabled = !ready || !engine || !engine.installed;
+  const label = wantSum ? "Субтитри й підсумок" : "Створити субтитри";
+  $("#sub-go").textContent = ready ? `${label} · ${ready}` : label;
+  $("#sub-go").disabled = !ready || !engine || !engine.installed || (wantSum && !summaryReady());
 }
 function describeMedia(p) {
   return esc([p.has_video ? "відео" : "аудіо", fmtDuration(p.duration), p.acodec ? String(p.acodec).toUpperCase() : ""].filter(Boolean).join(" · "));
@@ -1077,7 +1124,7 @@ $("#sub-go").addEventListener("click", async () => {
   const paths = subs.picker.ready();
   if (!paths.length) return;
   try {
-    const res = await api("/api/transcribe", { paths, engine: subs.engine, language: $("#sub-lang").value, txt: $("#sub-txt").checked });
+    const res = await api("/api/transcribe", { paths, engine: subs.engine, language: $("#sub-lang").value, txt: $("#sub-txt").checked, summary: $("#sub-sum").checked });
     toast(res.errors.length ? res.errors.join("; ") : `У черзі на розпізнавання: ${res.jobs.length}`);
     subs.picker.clear();
     show("queue");
