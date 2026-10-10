@@ -20,7 +20,17 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "YT Grab" -srcfolder "$STAGE" -ov -format UDZO "$DIST/YT-Grab.dmg" >/dev/null
+# hdiutil sometimes misjudges the image size on CI runners ("No space left on device"),
+# so give it an explicit size with headroom and retry once.
+SIZE_MB=$(( $(du -sm "$STAGE" | cut -f1) + 64 ))
+for attempt in 1 2; do
+  if hdiutil create -volname "YT Grab" -srcfolder "$STAGE" -size "${SIZE_MB}m" -ov -format UDZO "$DIST/YT-Grab.dmg" >/dev/null; then
+    break
+  fi
+  [ "$attempt" = 2 ] && exit 1
+  echo "hdiutil не вдалося, пробую ще раз…"
+  sleep 5
+done
 
 echo "→ Пакую ZIP…"
 ditto -c -k --keepParent "$APP" "$DIST/YT-Grab.zip"
