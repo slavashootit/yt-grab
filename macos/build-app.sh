@@ -31,10 +31,10 @@ rm -rf "$APP" "$BUILD/AppIcon.iconset" "$BUILD"/YTGrab-* "$BUILD"/uv-*
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/ytgrab"
 
 for arch in $ARCHS; do
-  echo "→ Компілюю для $arch…"
+  echo "→ Компілюю для ${arch}…"
   swiftc -O -target "$arch-apple-macos12.0" -o "$BUILD/YTGrab-$arch" "$HERE/main.swift" -framework Cocoa -framework WebKit
 
-  echo "→ Завантажую uv для $arch…"
+  echo "→ Завантажую uv для ${arch}…"
   uv_arch="$arch"; [ "$arch" = arm64 ] && uv_arch=aarch64
   mkdir -p "$BUILD/uv-$arch"
   curl -fsSL "https://github.com/astral-sh/uv/releases/latest/download/uv-$uv_arch-apple-darwin.tar.gz" \
