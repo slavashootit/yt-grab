@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YT Grab — завантажувач відео для Mac</title>
+<meta name="description" content="Безкоштовний завантажувач відео для Mac без лімітів і реклами. YouTube, Instagram, TikTok, Facebook, X, Vimeo і ще понад тисяча сайтів. Одразу в MP4, плейлисти, фото-пости, субтитри й підсумок розмови.">
+<meta property="og:title" content="YT Grab — завантажувач відео для Mac">
+<meta property="og:description" content="YouTube, Instagram, TikTok і ще 1000+ сайтів. До 8K і HDR, одразу в MP4, субтитри локально. Безкоштовно.">
+<meta property="og:image" content="https://slavashootit.github.io/yt-grab/home.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236d8bff'/%3E%3Cstop offset='1' stop-color='%23a46bff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url(%23g)'/%3E%3Cpath d='M32 15v24M21 29l11 11 11-11M19 49h26' fill='none' stroke='white' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f6f7fa;
+    --surface: #ffffff;
+    --surface-2: #eff1f6;
+    --text: #15171c;
+    --muted: #666d7c;
+    --line: #e1e4ec;
+    --accent: #5b78ff;
+    --accent-2: #9a5bff;
+    --accent-soft: rgba(91, 120, 255, 0.13);
+    --ok: #1fa971;
+    --err: #e5484d;
+    --shadow: 0 30px 80px -30px rgba(30, 40, 120, 0.35);
+    --radius: 16px;
+    /* The in-page app demo always uses the app's own dark palette */
+    --app-bg: #131519;
+    --app-side: #0e1013;
+    --app-surface: #1a1d23;
+    --app-surface-2: #22262e;
+    --app-line: #2a2f38;
+    --app-text: #eceef2;
+    --app-muted: #8d95a5;
+    --app-faint: #626a79;
+    --app-accent: #6d8bff;
+    --app-accent-2: #a46bff;
+    --app-ok: #34d399;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0d11;
+      --surface: #16181e;
+      --surface-2: #1e2129;
+      --text: #eef0f4;
+      --muted: #969cab;
+      --line: #282c36;
+      --accent: #6d8bff;
+      --accent-2: #a46bff;
+      --accent-soft: rgba(109, 139, 255, 0.17);
+      --shadow: 0 30px 90px -30px rgba(0, 0, 0, 0.85);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  a { color: inherit; }
+  img { max-width: 100%; display: block; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+  @media (max-width: 640px) { .wrap { padding: 0 16px; } }
+
+  /* Header */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+  header .wrap { display: flex; align-items: center; gap: 24px; height: 56px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 8px; flex: none;
+    background: linear-gradient(135deg, #6d8bff, #a46bff);
+    display: grid; place-items: center; color: #fff;
+  }
+  nav { margin-left: auto; display: flex; gap: 20px; font-size: 14px; color: var(--muted); }
+  nav a { text-decoration: none; }
+  nav a:hover { color: var(--text); }
+  .nav-dl {
+    margin-left: auto; display: none; text-decoration: none; font-size: 14px; font-weight: 600;
+    padding: 7px 14px; border-radius: 9px; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  }
+  @media (max-width: 760px) { nav { display: none; } .nav-dl { display: inline-block; } }
+
+  /* Hero */
+  .hero { padding: 72px 0 36px; text-align: center; position: relative; }
+  .hero::before {
+    content: ""; position: absolute; left: 50%; top: -120px; width: min(1100px, 100%); height: 560px; z-index: -1;
+    transform: translateX(-50%);
+    background: radial-gradient(closest-side at 40% 50%, var(--accent-soft), transparent 70%),
+                radial-gradient(closest-side at 65% 40%, rgba(164, 107, 255, 0.13), transparent 70%);
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px;
+    font-size: 13px; color: var(--muted); background: var(--surface);
+  }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  h1 {
+    font-size: clamp(38px, 6.6vw, 70px); line-height: 1.03; letter-spacing: -0.035em;
+    margin: 22px auto 16px; max-width: 860px;
+  }
+  .grad {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lead { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 auto; }
+
+  .cta { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 34px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 26px; border-radius: 12px; font-weight: 600; font-size: 17px;
+    text-decoration: none; color: #fff; border: 0; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 10px 30px -10px var(--accent);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 14px 36px -10px var(--accent); }
+  .meta { font-size: 13px; color: var(--muted); }
+  .or { font-size: 14px; color: var(--muted); margin-top: 6px; }
+
+  .term {
+    width: min(760px, 100%); text-align: left;
+    background: #101116; color: #e7e8ef; border-radius: 12px; border: 1px solid #262833;
+    font: 13.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+    display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px;
+  }
+  .term .prompt { color: #8ea3ff; user-select: none; }
+  .term code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+  .term code::-webkit-scrollbar { display: none; }
+  .copy {
+    flex: none; border: 1px solid #343748; background: #1c1e28; color: #e7e8ef;
+    border-radius: 8px; padding: 7px 12px; font: 600 13px -apple-system, sans-serif; cursor: pointer;
+    transition: background .15s;
+  }
+  .copy:hover { background: #2a2d3b; }
+  .copy.done { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .term-note { font-size: 13px; color: var(--muted); }
+
+  /* App demo */
+  .demo-section { padding: 30px 0 56px; }
+  .demo-hint { text-align: center; color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+  .win {
+    max-width: 980px; margin: 0 auto; border-radius: 14px; overflow: hidden; position: relative;
+    background: var(--app-bg); color: var(--app-text); border: 1px solid #2b2f3a;
+    box-shadow: var(--shadow); font-size: 14px;
+    display: grid; grid-template-columns: 200px 1fr; height: 560px;
+  }
+  .win .side { background: var(--app-side); border-right: 1px solid var(--app-line); padding: 14px 10px; display: flex; flex-direction: column; }
+  .win .lights { display: flex; gap: 7px; padding: 0 6px 16px; }
+  .win .lights i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+  .win .brand { display: flex; align-items: center; gap: 9px; padding: 0 6px 18px; }
+  .win .brand .logo-mark { width: 30px; height: 30px; }
+  .win .brand b { display: block; font-size: 14px; }
+  .win .brand small { color: var(--app-muted); font-size: 11px; }
+  .win h5 { margin: 6px 8px 6px; font-size: 10.5px; letter-spacing: .08em; color: var(--app-faint); }
+  .win .nav-i {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    padding: 7px 10px; border-radius: 8px; color: var(--app-text); font-size: 13.5px;
+    background: none; border: 0; cursor: pointer; font-family: inherit;
+  }
+  .win .nav-i:hover { background: var(--app-surface); }
+  .win .nav-i.on { background: var(--app-surface-2); }
+  .win .nav-i svg { color: var(--app-muted); flex: none; }
+  .win .nav-i.on svg { color: var(--app-accent); }
+  .win .nav-i .n { margin-left: auto; font-size: 11px; background: #2b3346; color: #c9d2ff; border-radius: 999px; padding: 1px 7px; }
+  .win .status { margin-top: auto; padding: 10px 8px 0; border-top: 1px solid var(--app-line); color: var(--app-muted); font-size: 11.5px; display: flex; align-items: center; gap: 7px; }
+  .win .status i { width: 7px; height: 7px; border-radius: 50%; background: var(--app-ok); }
+  .win .main { padding: 34px 32px 24px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #343846 transparent; }
+  .win .view { display: none; }
+  .win .view.on { display: block; }
+  .win .vh { text-align: center; margin-bottom: 18px; }
+  .win .vh h3 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .win .vh h3 span { background: linear-gradient(90deg, var(--app-accent), var(--app-accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .win .vh p { margin: 0; color: var(--app-muted); font-size: 13.5px; }
+  .urlbar {
+    display: flex; align-items: center; gap: 8px; max-width: 640px; margin: 0 auto;
+    background: var(--app-surface); border: 1px solid #3a4ea8; border-radius: 12px; padding: 6px 6px 6px 14px;
+    box-shadow: 0 0 0 4px rgba(109, 139, 255, 0.12);
+  }
+  .urlbar.shake { animation: shake .35s; border-color: #f87171; box-shadow: 0 0 0 4px rgba(248, 113, 113, .15); }
+  @keyframes shake { 25% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
+  .urlbar svg { color: var(--app-faint); flex: none; }
+  .urlbar input {
+    flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--app-text);
+    font: 14px -apple-system, BlinkMacSystemFont, sans-serif; padding: 8px 0;
+  }
+  .urlbar input::placeholder { color: var(--app-faint); }
+  .a-chip { background: var(--app-surface-2); border: 1px solid var(--app-line); color: var(--app-text); border-radius: 8px; padding: 7px 11px; font: 600 12.5px -apple-system, sans-serif; cursor: pointer; flex: none; }
+  .a-chip:hover { background: #2c313b; }
+  .a-btn { background: linear-gradient(135deg, var(--app-accent), var(--app-accent-2)); color: #fff; border: 0; border-radius: 9px; padding: 9px 16px; font: 700 13.5px -apple-system, sans-serif; cursor: pointer; flex: none; }
+  .a-btn:disabled { opacity: .6; cursor: default; }
+  .plats { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 680px; margin: 14px auto 6px; }
+  .plat { border: 1px solid var(--app-line); background: var(--app-surface); color: var(--app-muted); border-radius: 999px; padding: 4px 11px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .plat:hover { color: var(--app-text); border-color: #3a414d; }
+  .plat.hit { color: #fff; border-color: var(--app-accent); background: rgba(109, 139, 255, .18); }
+  .more { text-align: center; color: var(--app-faint); font-size: 12px; }
+  .res { max-width: 640px; margin: 20px auto 0; }
+  .vcard { display: flex; gap: 14px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 12px; padding: 12px; animation: rise .3s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  .thumb { width: 168px; aspect-ratio: 16/9; border-radius: 8px; flex: none; position: relative; display: grid; place-items: center; overflow: hidden; }
+  .thumb.vert { width: 84px; aspect-ratio: 9/16; }
+  .thumb .dur { position: absolute; right: 5px; bottom: 5px; background: rgba(0,0,0,.7); font-size: 11px; padding: 1px 5px; border-radius: 4px; }
+  .thumb .play { width: 34px; height: 34px; border-radius: 50%; background: rgba(0,0,0,.35); display: grid; place-items: center; backdrop-filter: blur(4px); }
+  .vinfo { min-width: 0; flex: 1; }
+  .vinfo .pl { font-size: 11.5px; color: var(--app-muted); display: flex; align-items: center; gap: 6px; }
+  .vinfo .pl i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .vinfo b { display: block; margin: 4px 0 2px; font-size: 15px; line-height: 1.3; }
+  .vinfo span { color: var(--app-muted); font-size: 12.5px; }
+  .qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-top: 12px; animation: rise .35s ease; }
+  .q {
+    background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; padding: 10px 12px; text-align: left;
+    color: var(--app-text); cursor: pointer; font-family: inherit; transition: border-color .15s, background .15s;
+  }
+  .q:hover { border-color: var(--app-accent); background: #1e2230; }
+  .q b { display: block; font-size: 14px; }
+  .q span { color: var(--app-muted); font-size: 11.5px; }
+  .q.best { border-color: #3a4ea8; background: rgba(109, 139, 255, .09); }
+  .opts { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--app-muted); font-size: 12.5px; }
+  .tick { width: 15px; height: 15px; border-radius: 4px; background: var(--app-accent); display: grid; place-items: center; }
+  .job { display: flex; gap: 12px; align-items: center; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 12px; padding: 12px; margin-bottom: 10px; animation: rise .3s ease; }
+  .job .thumb { width: 96px; }
+  .job .thumb.vert { width: 44px; }
+  .job .jb { flex: 1; min-width: 0; }
+  .job .jt { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job .js { color: var(--app-muted); font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job .js.ok { color: var(--app-ok); }
+  .bar { height: 5px; background: var(--app-surface-2); border-radius: 99px; margin-top: 8px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--app-accent), var(--app-accent-2)); border-radius: 99px; transition: width .2s linear; }
+  .job.done .bar i { background: var(--app-ok); }
+  .job .acts { display: flex; gap: 6px; flex: none; }
+  .empty-q { text-align: center; color: var(--app-faint); padding: 70px 0; font-size: 13.5px; }
+  .lib { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .lib .it { background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; overflow: hidden; animation: rise .3s ease; }
+  .lib .it .thumb { width: 100%; border-radius: 0; }
+  .lib .it div.t { padding: 8px 10px; font-size: 12.5px; }
+  .lib .it div.t span { display: block; color: var(--app-muted); font-size: 11px; margin-top: 2px; }
+  .tool-view { max-width: 560px; margin: 0 auto; }
+  .drop { border: 1.5px dashed #3a414d; border-radius: 12px; padding: 34px 16px; text-align: center; color: var(--app-muted); font-size: 13.5px; }
+  .drop b { color: var(--app-text); display: block; margin-bottom: 4px; font-size: 14.5px; }
+  .preset { display: block; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; padding: 10px 12px; margin-top: 8px; font-size: 13px; color: var(--app-muted); }
+  .preset b { color: var(--app-text); margin-right: 6px; }
+  .preset.on { border-color: #3a4ea8; background: rgba(109, 139, 255, .09); }
+  .toast {
+    position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 20px);
+    background: #f2f3f7; color: #15171c; padding: 9px 16px; border-radius: 10px; font-weight: 600;
+    font-size: 13.5px; opacity: 0; transition: all .25s ease; pointer-events: none; white-space: nowrap; z-index: 5;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (max-width: 760px) {
+    .win { grid-template-columns: 1fr; height: 540px; }
+    .win .side { display: none; }
+    .win .main { padding: 22px 14px 18px; }
+    .win .vh h3 { font-size: 24px; }
+    .urlbar { flex-wrap: wrap; padding: 8px; }
+    .urlbar > svg { display: none; }
+    .urlbar input { flex-basis: 100%; padding: 4px 4px 8px; }
+    .urlbar .a-chip { margin-left: auto; }
+    .thumb { width: 110px; }
+    .thumb.vert { width: 62px; }
+  }
+
+  /* Platforms strip */
+  .strip { padding: 18px 0 8px; text-align: center; }
+  .strip p { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+  .logos { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 10px; }
+  .logos span {
+    display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--line); font-weight: 600; font-size: 14px;
+  }
+  .logos span i { width: 10px; height: 10px; border-radius: 3px; }
+
+  /* Sections */
+  section h2 { font-size: clamp(28px, 4vw, 42px); letter-spacing: -0.025em; margin: 0 0 10px; text-align: center; }
+  section .sublead { text-align: center; color: var(--muted); margin: 0 auto 36px; max-width: 580px; }
+  .features { padding: 70px 0 50px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px; transition: transform .15s ease, border-color .15s ease;
+  }
+  .card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .card .emoji { font-size: 24px; }
+  .card h3 { margin: 10px 0 6px; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+  /* Screenshots */
+  .shots { padding: 50px 0; }
+  .tabs { display: flex; justify-content: center; gap: 6px; margin: 0 auto 22px; flex-wrap: wrap; }
+  .tab {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 999px;
+    padding: 8px 16px; font: 600 14px -apple-system, sans-serif; cursor: pointer;
+  }
+  .tab.on { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .frame { max-width: 980px; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: #131519; }
+  .frame img { width: 100%; height: auto; aspect-ratio: 16/10; }
+  .shot-cap { text-align: center; color: var(--muted); font-size: 14.5px; margin: 16px auto 0; max-width: 620px; min-height: 2.6em; }
+
+  /* Subtitles output */
+  .subs { padding: 50px 0; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 900px; margin: 0 auto; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+  .file { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .file .fh { padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .file .fh b { color: var(--text); font-weight: 600; }
+  .file pre { margin: 0; padding: 16px; font: 13px/1.6 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .file pre .c { color: var(--muted); }
+  .file pre .h { color: var(--accent); font-weight: 700; }
+  .engines { text-align: center; color: var(--muted); font-size: 14px; margin: 20px auto 0; max-width: 680px; }
+
+  /* Install */
+  .install { padding: 60px 0; }
+  .steps { display: grid; gap: 14px; width: min(760px, 100%); margin: 0 auto; counter-reset: s; }
+  .step { display: flex; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+  .step::before {
+    counter-increment: s; content: counter(s);
+    flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent); font-weight: 700;
+  }
+  .step h3 { margin: 2px 0 4px; font-size: 16px; }
+  .step p { margin: 0; color: var(--muted); font-size: 14.5px; }
+  code.i { font: 13px ui-monospace, Menlo, monospace; background: var(--surface-2); padding: 2px 6px; border-radius: 5px; overflow-wrap: anywhere; }
+
+  /* FAQ */
+  .faq { padding: 30px 0 70px; }
+  .faq-list { width: min(760px, 100%); margin: 0 auto; display: grid; gap: 10px; }
+  details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0 20px; }
+  summary { cursor: pointer; padding: 16px 0; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 20px; line-height: 1; }
+  details[open] summary::after { content: "−"; }
+  details p { margin: 0 0 16px; color: var(--muted); font-size: 14.5px; }
+
+  .final { padding: 20px 0 80px; text-align: center; }
+  .final .box {
+    max-width: 900px; margin: 0 auto; padding: 48px 20px; border-radius: 24px; border: 1px solid var(--line);
+    background: radial-gradient(closest-side at 30% 0%, var(--accent-soft), transparent), var(--surface);
+  }
+  .final h2 { margin-bottom: 8px; }
+  .final p { color: var(--muted); margin: 0 0 24px; }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 36px; color: var(--muted); font-size: 13.5px; }
+  footer .row { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; }
+  footer .thanks { margin-top: 14px; line-height: 1.8; }
+  footer .thanks a { text-decoration: none; border-bottom: 1px solid var(--line); }
+  footer .thanks a:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="logo" href="#">
+      <span class="logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span>
+      YT Grab
+    </a>
+    <nav>
+      <a href="#demo">Демо</a>
+      <a href="#features">Можливості</a>
+      <a href="#screens">Скріни</a>
+      <a href="#subtitles">Субтитри</a>
+      <a href="#install">Встановлення</a>
+      <a href="https://github.com/slavashootit/yt-grab">GitHub</a>
+    </nav>
+    <a class="nav-dl" href="https://github.com/slavashootit/yt-grab/releases/latest/download/YT-Grab.dmg">Скачати</a>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <span class="badge"><span class="dot"></span><span id="version">Безкоштовно · macOS 12+</span></span>
+      <h1>Качай відео звідусіль. <span class="grad">Без лімітів і реклами.</span></h1>
+      <p class="lead">YouTube, Instagram, TikTok, Facebook, X, Vimeo і ще понад тисяча сайтів. До 8K і HDR, одразу в MP4, плейлисти й цілі канали. А ще субтитри й підсумок розмови прямо на твоєму Маці.</p>
+
+      <div class="cta">
+        <a class="btn" href="https://github.com/slavashootit/yt-grab/releases/latest/download/YT-Grab.dmg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          Скачати для Mac
+        </a>
+        <span class="meta" id="dl-meta">Apple Silicon і Intel · .dmg</span>
+        <span class="or">або одною командою в Терміналі, без попереджень macOS</span>
+        <div class="term">
+          <span class="prompt">$</span>
+          <code id="cmd">curl -fsSL https://raw.githubusercontent.com/slavashootit/yt-grab/main/install.sh | bash</code>
+          <button class="copy" data-copy="cmd">Скопіювати</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-section" id="demo">
+    <div class="wrap">
+      <p class="demo-hint">Спробуй прямо тут: тисни «Вставити» або клікни платформу, потім «Отримати» й обери якість</p>
+      <div class="win" id="win">
+        <aside class="side">
+          <div class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+          <div class="brand">
+            <span class="logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span>
+            <div><b>YT Grab</b><small>без лімітів</small></div>
+          </div>
+          <h5>МЕДІА</h5>
+          <button class="nav-i on" data-view="home"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Завантажити</button>
+          <button class="nav-i" data-view="queue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h7M17 14v7M14 18l3 3 3-3"/></svg>Черга<span class="n" id="q-count" hidden>0</span></button>
+          <button class="nav-i" data-view="lib"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Завантажене<span class="n" id="lib-count">3</span></button>
+          <h5 style="margin-top:14px">ІНСТРУМЕНТИ</h5>
+          <button class="nav-i" data-view="conv"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>Конвертер</button>
+          <button class="nav-i" data-view="subs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 11h4M13 11h4M7 15h10"/></svg>Субтитри</button>
+          <div class="status"><i></i>Усе готово</div>
+        </aside>
+        <div class="main" id="app-main">
+          <div class="view on" data-v="home">
+            <div class="vh"><h3>Що <span>качаємо</span>?</h3><p>Відео, плейлист, цілий канал або пост з фото у найкращій якості</p></div>
+            <form class="urlbar" id="urlbar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+              <input id="url" placeholder="Встав посилання на відео, плейлист, канал або пост" autocomplete="off" spellcheck="false">
+              <button class="a-chip" type="button" id="paste">Вставити</button>
+              <button class="a-btn" type="submit" id="get">Отримати</button>
+            </form>
+            <div class="plats" id="plats"></div>
+            <div class="more">та ще понад тисяча сайтів · кілька посилань одразу · посилання з .txt</div>
+            <div class="res" id="res"></div>
+          </div>
+          <div class="view" data-v="queue">
+            <div class="vh"><h3>Черга</h3><p>Завантаження, конвертація і субтитри</p></div>
+            <div id="jobs"><div class="empty-q">Поки порожньо. Встав посилання на головній.</div></div>
+            <div style="text-align:center;margin-top:14px"><button class="a-chip" id="back-home">← Ще посилання</button></div>
+          </div>
+          <div class="view" data-v="lib">
+            <div class="vh"><h3>Завантажене</h3><p>~/Downloads/YouTube · кожна платформа й канал у своїй папці</p></div>
+            <div class="lib" id="lib"></div>
+          </div>
+          <div class="view" data-v="conv">
+            <div class="vh"><h3>Конвертер</h3><p>Будь-яке відео в MP4, який відкривається всюди</p></div>
+            <div class="tool-view">
+              <div class="drop"><b>Перетягни відео сюди</b>кілька файлів або цілу папку з Finder</div>
+              <label class="preset on"><b>H.264</b>Відкривається всюди: монтажки, телефони, месенджери.</label>
+              <label class="preset"><b>HEVC (H.265)</b>Зберігає 8K і HDR, файл менший.</label>
+              <label class="preset"><b>Швидко перепакувати</b>Без перекодування, за секунди.</label>
+            </div>
+          </div>
+          <div class="view" data-v="subs">
+            <div class="vh"><h3>Субтитри</h3><p>Video → SRT і підсумок розмови, локально й безкоштовно</p></div>
+            <div class="tool-view">
+              <div class="drop"><b>Перетягни відео або аудіо сюди</b>українська, англійська і десятки інших мов</div>
+              <label class="preset on"><b>NVIDIA Parakeet</b>Локально на Маці, швидко.</label>
+              <label class="preset"><b>Whisper</b>Локально, для будь-якого Мака.</label>
+              <label class="preset"><b>Groq</b>У хмарі з безкоштовним ключем.</label>
+            </div>
+          </div>
+        </div>
+        <div class="toast" id="toast"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="strip">
+    <div class="wrap">
+      <p>Працює з</p>
+      <div class="logos">
+        <span><i style="background:#ff0033"></i>YouTube</span>
+        <span><i style="background:linear-gradient(135deg,#feda75,#d62976,#4f5bd5)"></i>Instagram</span>
+        <span><i style="background:linear-gradient(135deg,#25f4ee,#fe2c55)"></i>TikTok</span>
+        <span><i style="background:#1877f2"></i>Facebook</span>
+        <span><i style="background:#888"></i>X</span>
+        <span><i style="background:#1ab7ea"></i>Vimeo</span>
+        <span><i style="background:#9146ff"></i>Twitch</span>
+        <span><i style="background:#ff5500"></i>SoundCloud</span>
+        <span><i style="background:#ff4500"></i>Reddit</span>
+        <span><i style="background:#e60023"></i>Pinterest</span>
+        <span><i style="background:#0a66c2"></i>LinkedIn</span>
+        <span>+1000 сайтів</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="wrap">
+      <h2>Що вміє</h2>
+      <p class="sublead">Один застосунок замість сайтів-качалок з рекламою, лімітами й водяними знаками.</p>
+      <div class="grid">
+        <div class="card"><div class="emoji">🎬</div><h3>Найкраща якість</h3><p>Аж до 8K і HDR. Будь-яка якість на вибір або лише звук у MP3 320 kbps.</p></div>
+        <div class="card"><div class="emoji">⚡️</div><h3>Одразу в MP4</h3><p>H.264, а для 4K/8K і HDR HEVC. Якщо відео вже в H.264/HEVC, просто перепаковує без втрат.</p></div>
+        <div class="card"><div class="emoji">📚</div><h3>Плейлисти й канали</h3><p>Цілком. Повторний запуск докачує лише нові відео.</p></div>
+        <div class="card"><div class="emoji">🖼</div><h3>Фото-пости</h3><p>Каруселі Instagram і слайдшоу TikTok разом з музикою.</p></div>
+        <div class="card"><div class="emoji">📋</div><h3>Кілька посилань одразу</h3><p>Встав списком, перетягни з браузера або скинь <code class="i">.txt</code>.</p></div>
+        <div class="card"><div class="emoji">🔄</div><h3>Конвертер у MP4</h3><p>Перетягни файли чи цілу папку з Finder. H.264 для будь-яких програм, HEVC для 4K і HDR.</p></div>
+        <div class="card"><div class="emoji">💬</div><h3>Субтитри з відео</h3><p>Video → SRT локально через NVIDIA Parakeet або Whisper, чи через Groq. Десятки мов.</p></div>
+        <div class="card"><div class="emoji">📝</div><h3>Підсумок розмови</h3><p>Головні думки, ключові моменти з таймкодами й домовленості в <code class="i">.md</code>. Локально, без реєстрацій.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="shots" id="screens">
+    <div class="wrap">
+      <h2>Як це виглядає</h2>
+      <p class="sublead">Чистий інтерфейс українською. Нічого зайвого.</p>
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-shot="0">Головна</button>
+        <button class="tab" data-shot="1">Завантажене</button>
+        <button class="tab" data-shot="2">Конвертер</button>
+        <button class="tab" data-shot="3">Субтитри</button>
+      </div>
+      <div class="frame"><img id="shot" src="home.png" width="1280" height="800" alt="YT Grab: головний екран"></div>
+      <p class="shot-cap" id="shot-cap"></p>
+    </div>
+  </section>
+
+  <section class="subs" id="subtitles">
+    <div class="wrap">
+      <h2>Субтитри й підсумок <span class="grad">за хвилину</span></h2>
+      <p class="sublead">Кинь інтерв'ю чи запис дзвінка, і поруч з'являться готові файли. Premiere, DaVinci, CapCut і плеєри підхоплюють субтитри самі.</p>
+      <div class="two">
+        <div class="file">
+          <div class="fh">📄 <b>Інтерв'ю.srt</b></div>
+<pre><span class="c">1
+00:00:00,000 --> 00:00:04,400</span>
+Привіт, сьогодні обговорюємо
+зйомку рекламного ролика.
+
+<span class="c">2
+00:00:04,800 --> 00:00:09,200</span>
+Знімаємо в суботу о десятій
+ранку в студії на Подолі.
+
+<span class="c">3
+00:00:09,600 --> 00:00:14,000</span>
+Бюджет на оренду світла:
+двадцять тисяч гривень.</pre>
+        </div>
+        <div class="file">
+          <div class="fh">📝 <b>Інтерв'ю — підсумок.md</b></div>
+<pre><span class="h">## Коротко</span>
+Команда планує зйомку рекламного
+ролика в суботу.
+
+<span class="h">## Ключові моменти</span>
+- [0:04] дата й місце зйомки
+- [0:09] бюджет на світло
+
+<span class="h">## Домовленості</span>
+- Слава: сценарій до четверга
+- Олена: кастинг акторів</pre>
+        </div>
+      </div>
+      <p class="engines">До 2 рядків по 42 символи, до 6 секунд на титр, нові титри на паузах і в кінці речень. Підсумок робить модель Qwen3-4B прямо на Маці з чипом Apple, без інтернету й ключів, або Groq.</p>
+    </div>
+  </section>
+
+  <section class="install" id="install">
+    <div class="wrap">
+      <h2>Встановлення</h2>
+      <p class="sublead">Найпростіше: команда в Терміналі вгорі сторінки. Застосунок з'явиться в «Програмах» і відкриється сам. Або вручну:</p>
+      <div class="steps">
+        <div class="step"><div><h3>Скачай і перетягни</h3><p>Відкрий <code class="i">YT-Grab.dmg</code> і перетягни YT Grab у «Програми».</p></div></div>
+        <div class="step"><div><h3>Дозволь перший запуск</h3><p>YT Grab безкоштовний і не підписаний платним сертифікатом Apple, тож macOS попередить. Натисни «Готово», відкрий Системні параметри → Конфіденційність і безпека й натисни <b>«Усе одно відкрити»</b>. Лише один раз.</p></div></div>
+        <div class="step"><div><h3>Зачекай хвилинку</h3><p>При першому запуску YT Grab сам докачає Python, yt-dlp, ffmpeg і deno (близько 300 МБ, один раз). Homebrew чи інші програми ставити не треба.</p></div></div>
+        <div class="step"><div><h3>Встав посилання</h3><p>Файли лягають у <code class="i">~/Downloads/YouTube/</code>, кожна платформа й канал у свою папку. Теку можна змінити в Налаштуваннях.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" id="faq">
+    <div class="wrap">
+      <h2>Питання</h2>
+      <p class="sublead">Коротко про те, що зазвичай питають.</p>
+      <div class="faq-list">
+        <details><summary>Це справді безкоштовно?</summary><p>Так. Без підписок, лімітів, реклами й водяних знаків. Код відкритий під ліцензією MIT.</p></details>
+        <details><summary>Щось перестало качати. Що робити?</summary><p>Налаштування → «Оновити компоненти». Сайти часто змінюються, і свіжий yt-dlp лікує більшість проблем. Журнал роботи лежить у <code class="i">~/.ytgrab/app.log</code>.</p></details>
+        <details><summary>Instagram, Facebook чи X просять увійти</summary><p>У Налаштуваннях обери браузер, у якому ти залогінений (Cookies з браузера). Так само качаються відео 18+ і приватні плейлисти.</p></details>
+        <details><summary>Які Маки підтримуються?</summary><p>macOS 12 і новіші, Apple Silicon і Intel. Локальний підсумок розмови працює на Маках з чипом Apple, на Intel його робить Groq.</p></details>
+        <details><summary>Скільки місця займає?</summary><p>Компоненти близько 300 МБ. Моделі для субтитрів (~2 ГБ) і підсумку (~2,3 ГБ) ставляться окремо й лише якщо вони тобі потрібні.</p></details>
+        <details><summary>Як повністю видалити?</summary><p>Прибери YT Grab з «Програм» і теку <code class="i">~/.ytgrab</code> з налаштуваннями, компонентами й моделями.</p></details>
+        <details><summary>А це законно?</summary><p>YT Grab для особистого користування: архіву власного контенту, референсів, роботи з матеріалами, на які в тебе є права. Поважай авторське право й правила платформ.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <div class="box">
+        <h2>Готовий качати?</h2>
+        <p>Безкоштовно, для macOS 12+, Apple Silicon і Intel.</p>
+        <a class="btn" href="https://github.com/slavashootit/yt-grab/releases/latest/download/YT-Grab.dmg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          Скачати YT Grab
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <span>YT Grab · відкритий код · MIT</span>
+      <span><a href="https://github.com/slavashootit/yt-grab">GitHub</a> · <a href="https://github.com/slavashootit/yt-grab/releases">Усі версії</a></span>
+    </div>
+    <div class="thanks">
+      Стоїть на плечах відкритих проєктів:
+      <a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a> ·
+      <a href="https://github.com/mikf/gallery-dl">gallery-dl</a> ·
+      <a href="https://ffmpeg.org">FFmpeg</a> ·
+      <a href="https://github.com/astral-sh/uv">uv</a> ·
+      <a href="https://deno.com">Deno</a> ·
+      <a href="https://github.com/senstella/parakeet-mlx">parakeet-mlx</a> ·
+      <a href="https://github.com/SYSTRAN/faster-whisper">faster-whisper</a> ·
+      <a href="https://github.com/ml-explore/mlx-lm">MLX LM</a> ·
+      <a href="https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507">Qwen3</a> ·
+      <a href="https://groq.com">Groq</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Copy buttons
+  document.querySelectorAll(".copy").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const el = document.getElementById(btn.dataset.copy);
+      try {
+        await navigator.clipboard.writeText(el.textContent);
+      } catch (e) {
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+        document.execCommand("copy");
+      }
+      btn.textContent = "Скопійовано ✓";
+      btn.classList.add("done");
+      setTimeout(() => { btn.textContent = "Скопіювати"; btn.classList.remove("done"); }, 1800);
+    });
+  });
+
+  // Latest version and size from GitHub
+  fetch("https://api.github.com/repos/slavashootit/yt-grab/releases/latest")
+    .then(r => r.ok ? r.json() : null)
+    .then(rel => {
+      if (!rel) return;
+      document.getElementById("version").textContent = `Версія ${rel.tag_name.replace(/^v/, "")} · безкоштовно · macOS 12+`;
+      const dmg = (rel.assets || []).find(a => a.name === "YT-Grab.dmg");
+      if (dmg) {
+        const mb = (dmg.size / 1048576).toFixed(1).replace(".", ",");
+        document.getElementById("dl-meta").textContent = `Apple Silicon і Intel · .dmg · ${mb} МБ`;
+      }
+    })
+    .catch(() => {});
+
+  // Screenshot tabs
+  const shots = [
+    ["home.png", "Головна: встав посилання, і YT Grab сам розбереться, відео це, плейлист, канал чи пост з фото."],
+    ["library.png", "Завантажене: усі файли з пошуком за назвою, кожна платформа й канал у своїй папці."],
+    ["converter.png", "Конвертер: H.264 для будь-яких програм, HEVC для 4K/8K і HDR, або швидке перепакування без втрат."],
+    ["subtitles.png", "Субтитри: Video → SRT локально через Parakeet чи Whisper, плюс підсумок розмови в .md."],
+  ];
+  const shotImg = document.getElementById("shot");
+  const shotCap = document.getElementById("shot-cap");
+  shots.forEach(([src]) => { const i = new Image(); i.src = src; });
+  function showShot(n) {
+    shotImg.src = shots[n][0];
+    shotImg.alt = "YT Grab: " + document.querySelector(`.tab[data-shot="${n}"]`).textContent;
+    shotCap.textContent = shots[n][1];
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", +t.dataset.shot === n));
+  }
+  document.getElementById("tabs").addEventListener("click", e => {
+    const t = e.target.closest(".tab");
+    if (t) showShot(+t.dataset.shot);
+  });
+  showShot(0);
+
+  // ---------- Interactive app demo ----------
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  const platforms = [
+    { id: "youtube", name: "YouTube", color: "#ff0033", re: /(youtube\.com|youtu\.be)/i },
+    { id: "instagram", name: "Instagram", color: "#d62976", re: /instagram\.com/i },
+    { id: "tiktok", name: "TikTok", color: "#fe2c55", re: /tiktok\.com/i },
+    { id: "facebook", name: "Facebook", color: "#1877f2", re: /(facebook\.com|fb\.watch)/i },
+    { id: "x", name: "X", color: "#8a8f99", re: /(x\.com|twitter\.com)/i },
+    { id: "threads", name: "Threads", color: "#8a8f99", re: /threads\.(net|com)/i },
+    { id: "vimeo", name: "Vimeo", color: "#1ab7ea", re: /vimeo\.com/i },
+    { id: "reddit", name: "Reddit", color: "#ff4500", re: /reddit\.com/i },
+    { id: "pinterest", name: "Pinterest", color: "#e60023", re: /(pinterest\.|pin\.it)/i },
+    { id: "linkedin", name: "LinkedIn", color: "#0a66c2", re: /linkedin\.com/i },
+    { id: "twitch", name: "Twitch", color: "#9146ff", re: /twitch\.tv/i },
+    { id: "soundcloud", name: "SoundCloud", color: "#ff5500", re: /soundcloud\.com/i },
+  ];
+
+  // Sample links for the "Вставити" button and platform chips (fictional content)
+  const samples = {
+    youtube: "https://www.youtube.com/watch?v=k7Xq2mPLr9A",
+    instagram: "https://www.instagram.com/p/C9mQx4LtR2e/",
+    tiktok: "https://www.tiktok.com/@motion.daily/video/7391842265019",
+    facebook: "https://www.facebook.com/watch/?v=1029384756",
+    x: "https://x.com/filmlab/status/1830012345678",
+    threads: "https://www.threads.net/@studio.light/post/C8aB3xY",
+    vimeo: "https://vimeo.com/912345678",
+    reddit: "https://www.reddit.com/r/videography/comments/1abc2d/",
+    pinterest: "https://www.pinterest.com/pin/1234567890/",
+    linkedin: "https://www.linkedin.com/posts/filmlab_activity-71234",
+    twitch: "https://www.twitch.tv/videos/2198765432",
+    soundcloud: "https://soundcloud.com/lofi-room/night-drive",
+  };
+  const pasteCycle = [
+    "https://www.youtube.com/watch?v=k7Xq2mPLr9A",
+    "https://www.instagram.com/reel/C8xYz2LmQp1/",
+    "https://www.tiktok.com/@motion.daily/photo/7402213378541",
+    "https://www.youtube.com/playlist?list=PLx9cGrade0Basics",
+    "https://www.instagram.com/p/C9mQx4LtR2e/",
+    "https://vimeo.com/912345678",
+  ];
+  let pasteIdx = 0;
+
+  function detect(url) {
+    const p = platforms.find(p => p.re.test(url)) || { id: "other", name: "Сайт", color: "#6d8bff" };
+    let kind = "video";
+    if (p.id === "soundcloud") kind = "audio";
+    else if (/[?&]list=|\/playlist|\/@[^/]+\/?$|\/channel\//i.test(url) && p.id === "youtube") kind = "playlist";
+    else if ((p.id === "instagram" && /\/p\//.test(url)) || (p.id === "tiktok" && /\/photo\//.test(url)) || p.id === "pinterest") kind = "photos";
+    const vertical = /\/reel|\/shorts\/|tiktok/i.test(url);
+    return { p, kind, vertical };
+  }
+
+  function describe({ p, kind, vertical }) {
+    const host = p.id === "other" ? "" : p.name;
+    if (kind === "playlist") return { title: "Кольорокорекція з нуля: повний курс", by: "Film Lab", meta: "Плейлист · 24 відео", dur: "24 відео", max: 2160 };
+    if (kind === "photos") {
+      const n = p.id === "tiktok" ? 8 : 6;
+      return { title: p.id === "tiktok" ? "Слайдшоу: 8 кадрів з бекстейджу" : "Карусель: лукбук осінь", by: p.id === "tiktok" ? "@motion.daily" : "@studio.light", meta: `Пост з фото · ${n} фото${p.id === "tiktok" ? " + музика" : ""}`, dur: `${n} фото`, n };
+    }
+    if (kind === "audio") return { title: "Night Drive (lo-fi mix)", by: "lofi room", meta: "Аудіо · 3:42", dur: "3:42" };
+    if (vertical) return { title: p.id === "tiktok" ? "Переходи без монтажу: 3 трюки" : "Reel: світло з однієї лампи", by: p.id === "tiktok" ? "@motion.daily" : "@studio.light", meta: `${host || "Відео"} · 1080×1920`, dur: "0:28", max: 1080 };
+    if (p.id === "youtube") return { title: "Кольорокорекція в DaVinci за 10 хвилин", by: "Film Lab", meta: "YouTube · 8K HDR доступно", dur: "10:24", max: 4320, hdr: true };
+    return { title: host ? `Відео з ${host}` : "Відео з сайту", by: host || new URL(currentUrl).host, meta: `${host || "Один із 1000+ сайтів"} · до 1080p`, dur: "2:15", max: 1080 };
+  }
+
+  const qualities = [
+    [4320, "8K", "HDR · HEVC"], [2160, "4K", "HEVC"], [1440, "2K", "H.264"], [1080, "1080p", "H.264"], [720, "720p", "H.264"],
+  ];
+
+  let currentUrl = "", current = null;
+  const res = $("res"), urlInput = $("url"), urlbar = $("urlbar");
+
+  function thumbHTML(c, info, vert) {
+    const g = `background:linear-gradient(135deg, ${c} 0%, #2a2350 55%, #6d8bff 100%)`;
+    const icon = info.kind === "photos"
+      ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>`;
+    return `<div class="thumb ${vert ? "vert" : ""}" style="${g}"><span class="play">${icon}</span><span class="dur">${esc(info.d.dur)}</span></div>`;
+  }
+
+  function renderPlats(hit) {
+    $("plats").innerHTML = platforms.map(p => `<button class="plat ${hit === p.id ? "hit" : ""}" data-p="${p.id}">${p.name}</button>`).join("");
+  }
+
+  function fetchInfo(e) {
+    if (e) e.preventDefault();
+    const raw = urlInput.value.trim();
+    let ok = false;
+    try { const u = new URL(raw); ok = /^https?:$/.test(u.protocol) && u.hostname.includes("."); } catch (_) {}
+    if (!ok) {
+      urlbar.classList.remove("shake"); void urlbar.offsetWidth; urlbar.classList.add("shake");
+      toast(raw ? "Це не схоже на посилання" : "Спершу встав посилання");
+      return;
+    }
+    currentUrl = raw;
+    const info = detect(raw);
+    info.d = describe(info);
+    current = info;
+    renderPlats(info.p.id);
+    const btn = $("get");
+    btn.disabled = true; btn.textContent = "Шукаю…";
+    res.innerHTML = "";
+    setTimeout(() => {
+      btn.disabled = false; btn.textContent = "Отримати";
+      renderResult(info);
+    }, 650);
+  }
+
+  function renderResult(info) {
+    const d = info.d;
+    let cards = "";
+    if (info.kind === "photos") {
+      cards = `<button class="q best" data-q="photos"><b>Усі фото</b><span>${d.n} шт.${info.p.id === "tiktok" ? " + MP3" : ", оригінал"}</span></button>`;
+    } else if (info.kind === "audio") {
+      cards = `<button class="q best" data-q="mp3"><b>MP3</b><span>320 kbps</span></button>`;
+    } else {
+      const max = d.max || 1080;
+      const list = qualities.filter(([h]) => h <= max);
+      if (info.kind === "playlist") {
+        cards = `<button class="q best" data-q="best"><b>Усе в найкращій</b><span>24 відео</span></button>` +
+          list.filter(([h]) => h <= 2160 && h >= 1080).map(([h, l]) => `<button class="q" data-q="${h}"><b>До ${l}</b><span>24 відео</span></button>`).join("");
+      } else {
+        cards = list.map(([h, l, s], i) => `<button class="q ${i === 0 ? "best" : ""}" data-q="${h}"><b>${l}</b><span>${i === 0 && h >= 2160 ? "найкраща · " : ""}${h >= 2160 ? s : "MP4 · H.264"}</span></button>`).join("");
+      }
+      cards += `<button class="q" data-q="mp3"><b>Лише звук</b><span>MP3 320 kbps</span></button>`;
+    }
+    const opt = info.kind === "video" || info.kind === "playlist"
+      ? `<div class="opts"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>Одразу в MP4${info.kind === "playlist" ? " · повторний запуск докачає лише нові" : ""}</div>` : "";
+    res.innerHTML = `
+      <div class="vcard">
+        ${thumbHTML(info.p.color, info, info.vertical)}
+        <div class="vinfo">
+          <div class="pl"><i style="background:${info.p.color}"></i>${esc(d.meta)}</div>
+          <b>${esc(d.title)}</b>
+          <span>${esc(d.by)}</span>
+        </div>
+      </div>
+      <div class="qgrid">${cards}</div>${opt}`;
+  }
+
+  // Queue simulation
+  let jobs = 0, active = 0;
+  const library = [
+    { t: "Світло з однієї лампи", s: "Instagram · 1080p · 0:28", c: "#d62976", v: true },
+    { t: "Кольорокорекція в DaVinci за 10 хвилин", s: "YouTube · 4K · 10:24", c: "#ff0033" },
+    { t: "Переходи без монтажу", s: "TikTok · 1080p · 0:15", c: "#fe2c55", v: true },
+  ];
+
+  function folder(info) {
+    const by = info.d.by.replace(/^@/, "");
+    // Mirrors app/sites.py: YouTube goes straight to <channel>/, other sites to <platform>/<uploader>/
+    if (info.p.id === "youtube") return `~/Downloads/YouTube/${by}/`;
+    return `~/Downloads/YouTube/${info.p.id === "other" ? "Other" : info.p.name}/${by}/`;
+  }
+
+  function startJob(q) {
+    const info = current;
+    const d = info.d;
+    const label = q === "mp3" ? "MP3 320 kbps" : q === "photos" ? `${d.n} фото` : q === "best" ? "найкраща" : (qualities.find(x => String(x[0]) === q) || [])[1];
+    const ext = q === "mp3" ? ".mp3" : q === "photos" ? "" : ".mp4";
+    const id = "job" + (++jobs);
+    const box = $("jobs");
+    if (!box.querySelector(".job")) box.innerHTML = "";
+    const el = document.createElement("div");
+    el.className = "job"; el.id = id;
+    el.innerHTML = `${thumbHTML(info.p.color, info, info.vertical)}
+      <div class="jb"><div class="jt">${esc(d.title)}</div><div class="js">Готуюсь…</div><div class="bar"><i></i></div></div>
+      <div class="acts"></div>`;
+    box.prepend(el);
+    active++; updateCount();
+    switchView("queue");
+
+    const size = q === "mp3" ? 9.8 : q === "photos" ? 14.2 : ({ 4320: 1840, 2160: 612, 1440: 260, 1080: 148, 720: 74, best: 612 }[q] || 148);
+    const total = info.kind === "playlist" ? size * 24 : size;
+    const js = el.querySelector(".js"), bar = el.querySelector(".bar i");
+    let pct = 0;
+    const tick = setInterval(() => {
+      pct = Math.min(100, pct + 6 + Math.random() * 10);
+      bar.style.width = pct + "%";
+      const mbps = (18 + Math.random() * 14).toFixed(1);
+      const done = (total * pct / 100);
+      const fmt = v => v >= 1000 ? (v / 1024).toFixed(2).replace(".", ",") + " ГБ" : v.toFixed(1).replace(".", ",") + " МБ";
+      js.textContent = `${label} · ${fmt(done)} з ${fmt(total)} · ${mbps} МБ/с`;
+      if (pct >= 100) {
+        clearInterval(tick);
+        const needsMp4 = ext === ".mp4";
+        if (needsMp4) {
+          js.textContent = `→ MP4 (${q === "4320" || q === "2160" || q === "best" ? "HEVC" : "H.264"})…`;
+          bar.style.width = "100%";
+          setTimeout(() => finish(el, info, label, ext), 900);
+        } else finish(el, info, label, ext);
+      }
+    }, 220);
+  }
+
+  function finish(el, info, label, ext) {
+    const d = info.d;
+    el.classList.add("done");
+    const js = el.querySelector(".js");
+    js.classList.add("ok");
+    js.textContent = `Готово · ${folder(info)}${info.kind === "photos" || info.kind === "playlist" ? "" : d.title + ext}`;
+    const acts = el.querySelector(".acts");
+    if (ext === ".mp4" || ext === ".mp3") {
+      acts.innerHTML = `<button class="a-chip">→ SRT і підсумок</button>`;
+      acts.firstChild.addEventListener("click", ev => {
+        ev.target.disabled = true; ev.target.textContent = "Розпізнаю…";
+        setTimeout(() => { ev.target.textContent = "SRT і .md готові ✓"; toast("Субтитри й підсумок лягли поруч з відео ✓"); }, 1400);
+      }, { once: true });
+    }
+    active--; updateCount();
+    library.unshift({ t: d.title, s: `${info.p.name} · ${label}${d.dur.includes(":") ? " · " + d.dur : ""}`, c: info.p.color, v: info.vertical });
+    renderLib();
+    toast("Завантажено ✓");
+  }
+
+  function updateCount() {
+    const n = $("q-count");
+    n.hidden = active === 0; n.textContent = active;
+  }
+
+  function renderLib() {
+    $("lib-count").textContent = library.length;
+    $("lib").innerHTML = library.map(it => `
+      <div class="it">
+        <div class="thumb" style="background:linear-gradient(135deg, ${it.c} 0%, #2a2350 55%, #6d8bff 100%)"><span class="play"><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></span></div>
+        <div class="t">${esc(it.t)}<span>${esc(it.s)}</span></div>
+      </div>`).join("");
+  }
+
+  function switchView(v) {
+    document.querySelectorAll(".win .view").forEach(x => x.classList.toggle("on", x.dataset.v === v));
+    document.querySelectorAll(".win .nav-i").forEach(x => x.classList.toggle("on", x.dataset.view === v));
+    $("app-main").scrollTop = 0;
+  }
+
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => t.classList.remove("show"), 1700);
+  }
+
+  urlbar.addEventListener("submit", fetchInfo);
+  $("paste").addEventListener("click", () => {
+    urlInput.value = pasteCycle[pasteIdx++ % pasteCycle.length];
+    renderPlats(detect(urlInput.value).p.id);
+  });
+  urlInput.addEventListener("input", () => renderPlats(urlInput.value ? detect(urlInput.value).p.id : null));
+  $("plats").addEventListener("click", e => {
+    const b = e.target.closest(".plat");
+    if (!b) return;
+    urlInput.value = samples[b.dataset.p];
+    renderPlats(b.dataset.p);
+    fetchInfo();
+  });
+  res.addEventListener("click", e => {
+    const b = e.target.closest(".q");
+    if (b && current) startJob(b.dataset.q);
+  });
+  document.querySelector(".win .side").addEventListener("click", e => {
+    const b = e.target.closest(".nav-i");
+    if (b) switchView(b.dataset.view);
+  });
+  $("back-home").addEventListener("click", () => switchView("home"));
+
+  renderPlats(null);
+  renderLib();
+</script>
+</body>
+</html>

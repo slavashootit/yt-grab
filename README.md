@@ -9,7 +9,7 @@
   YouTube, Instagram, TikTok, Facebook, X, Vimeo та ще понад тисяча сайтів.
 </p>
 
-<p align="center">macOS 12+ · Apple Silicon і Intel · безкоштовно</p>
+<p align="center">macOS 12+ · Apple Silicon і Intel · безкоштовно · <a href="https://slavashootit.github.io/yt-grab/">сайт</a></p>
 
 ## Встановити — обери один спосіб
 

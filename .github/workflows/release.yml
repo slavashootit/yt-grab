@@ -3,6 +3,8 @@ name: Build & release
 on:
   push:
     branches: [main]
+    # Landing page changes don't need a macOS build
+    paths-ignore: ["docs/**"]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
