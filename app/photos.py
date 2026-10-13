@@ -83,3 +83,30 @@ def target_dir(out_dir: str, platform: str, info: dict) -> Path:
 def download_cmd(binary: str, url: str, folder: Path, cookies_browser: str = "") -> list[str]:
     # Numbered files keep the carousel order; "00" is TikTok's slideshow soundtrack.
     return [binary, "-D", str(folder), "-f", "{num:>02}.{extension}", *_cookies(cookies_browser), url]
+
+
+# Instagram profiles: a few dozen latest posts are plenty and keep the account clear of rate limits.
+PROFILE_MAX_POSTS = 100
+
+
+def profile_dir(out_dir: str, username: str) -> Path:
+    return Path(out_dir) / "Instagram" / _clean(username, 80)
+
+
+def profile_cmd(binary: str, username: str, tab: str, folder: Path, archive: Path, cookies_browser: str = "",
+                date_from: str = "", date_to: str = "") -> list[str]:
+    """gallery-dl command for a profile's reels or posts, newest first, limited to a date range.
+
+    --date-after stops at the first older post; pinned posts are skipped first so an old pinned
+    reel at the top cannot end the scan early. --date-before is exclusive, so callers pass the day
+    after the last wanted one.
+    """
+    name = "{date:%Y-%m-%d}{description[:60]:? - //} [{post_shortcode}]"
+    name += "{num:? #//>02}.{extension}" if tab == "posts" else ".{extension}"
+    cmd = [binary, "-D", str(folder), "-f", name, "--download-archive", str(archive),
+           "-o", "pinned=false", "-o", f"max-posts={PROFILE_MAX_POSTS}", *_cookies(cookies_browser)]
+    if date_from:
+        cmd += ["--date-after", date_from]
+    if date_to:
+        cmd += ["--date-before", date_to]
+    return cmd + [f"https://www.instagram.com/{username}/{tab}/"]

@@ -17,6 +17,7 @@ import tempfile
 import threading
 import time
 import uuid
+from datetime import date, timedelta
 import webbrowser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -52,6 +53,8 @@ PROGRESS_TEMPLATE = (
 )
 COOKIE_BROWSERS = {"", "chrome", "safari", "firefox", "brave", "edge", "chromium", "opera", "vivaldi"}
 MAX_PARALLEL_JOBS = 2
+# How many latest videos of a non-YouTube channel/profile are checked against a date range.
+DATE_SCAN_LIMIT = 150
 
 DEFAULT_SETTINGS = {
     "out_dir": str(Path.home() / "Downloads" / "YouTube"),
@@ -194,6 +197,42 @@ def normalize_url(url: str) -> str:
     return url
 
 
+def parse_dates(data: dict) -> tuple[str, str]:
+    """Validate the optional "date_from"/"date_to" (YYYY-MM-DD, both inclusive) of a request."""
+    values = []
+    for key in ("date_from", "date_to"):
+        value = str(data.get(key) or "").strip()
+        if value:
+            try:
+                value = date.fromisoformat(value).isoformat()
+            except ValueError:
+                raise ValueError("Дата має бути у форматі РРРР-ММ-ДД")
+        values.append(value)
+    if values[0] and values[1] and values[0] > values[1]:
+        raise ValueError("Початкова дата пізніша за кінцеву")
+    return values[0], values[1]
+
+
+def date_filter_args(url: str, date_from: str, date_to: str) -> list[str]:
+    """yt-dlp options that keep only videos uploaded within [date_from, date_to]."""
+    if not (date_from or date_to):
+        return []
+    lo, hi = date_from.replace("-", ""), date_to.replace("-", "")
+    rule = " & ".join(p for p in (lo and f"upload_date>={lo}", hi and f"upload_date<={hi}") if p)
+    args = ["--match-filters", rule]
+    if lo:
+        platform = sites.detect(url)
+        if platform and platform[0] == "youtube":
+            # Channel tabs are newest first: stop at the first older video instead of reading the whole
+            # channel. Videos without a date never stop the scan.
+            args += ["--lazy-playlist", "--break-match-filters", f"upload_date>={lo}",
+                     "--break-match-filters", "!upload_date"]
+        else:
+            # TikTok and others pin old videos on top, so a break would end too early; cap the scan instead.
+            args += ["--playlist-end", str(DATE_SCAN_LIMIT)]
+    return args
+
+
 def cookie_args(cfg: dict) -> list[str]:
     return ["--cookies-from-browser", cfg["cookies_browser"]] if cfg.get("cookies_browser") else []
 
@@ -269,8 +308,14 @@ def fetch_info(url: str) -> dict:
     cfg = load_settings()
     platform = sites.detect(url)
     platform_name = platform[1] if platform else None
-    # TikTok slideshows are photo posts that yt-dlp does not support at all.
-    if re.search(r"tiktok\.com/@[^/]+/photo/", url):
+    profile = sites.instagram_profile(url)
+    if profile:
+        # Reading a profile needs a login and is slow; the date range is chosen first, the posts come later.
+        return {"kind": "profile", "platform": "Instagram", "uploader": profile[0], "title": "@" + profile[0],
+                "tab": profile[1], "max_posts": photos.PROFILE_MAX_POSTS,
+                "has_cookies": bool(cfg.get("cookies_browser")),
+                "has_gallery": photos.gallery_bin(VENV_DIR) is not None}
+    if sites.PHOTO_POST.search(url):
         result = fetch_photos(url, cfg)
         if result:
             result["platform"] = platform_name
@@ -307,7 +352,8 @@ def last_error_line(text: str) -> str:
     return (errors or lines or [""])[-1][:400]
 
 
-def build_download_cmd(url: str, quality: str, use_archive: bool, cfg: dict, files_log: str) -> list[str]:
+def build_download_cmd(url: str, quality: str, use_archive: bool, cfg: dict, files_log: str,
+                       date_from: str = "", date_to: str = "") -> list[str]:
     out_dir = cfg["out_dir"]
     cmd = [
         ytdlp_bin(), "--newline", "--no-colors", "--ignore-errors", "--no-overwrites",
@@ -316,6 +362,7 @@ def build_download_cmd(url: str, quality: str, use_archive: bool, cfg: dict, fil
         "--progress-template", PROGRESS_TEMPLATE,
         "--print-to-file", "after_move:filepath", files_log,
         *cookie_args(cfg),
+        *date_filter_args(url, date_from, date_to),
     ]
     if use_archive:
         # Playlists/channels skip videos fetched before, so re-runs only grab new uploads.
@@ -361,6 +408,8 @@ class Job:
         self.cancelled = False
         self.parent: Job | None = None  # the download an automatic MP4 conversion belongs to
         self.converting = 0  # automatic MP4 conversions still running for this download
+        self.date_from = ""
+        self.date_to = ""
 
     def to_json(self) -> dict:
         return {
@@ -368,6 +417,7 @@ class Job:
             "status": self.status, "percent": self.percent, "speed": self.speed,
             "eta": self.eta, "item": self.item, "current": self.current, "error": self.error,
             "files": self.files, "created": self.created, "converting": self.converting,
+            "date_from": self.date_from, "date_to": self.date_to,
         }
 
 
@@ -398,7 +448,9 @@ def run_job(job: Job) -> None:
         os.close(fd)
         tail: list[str] = []
         try:
-            cmd = build_download_cmd(job.url, job.quality, job.use_archive, cfg, files_log)
+            if sites.PHOTO_POST.search(job.url) and photos.gallery_bin(VENV_DIR):
+                return switch_to_photos(job, cfg)
+            cmd = build_download_cmd(job.url, job.quality, job.use_archive, cfg, files_log, job.date_from, job.date_to)
             job.status = "running"
             job.proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
@@ -422,12 +474,17 @@ def run_job(job: Job) -> None:
             elif code == 0:
                 job.status, job.percent, job.eta = "done", 100.0, ""
                 if not job.files:
-                    job.error = "Нових відео немає: усе вже завантажено раніше"
+                    job.error = ("За цей період нових відео немає" if job.date_from or job.date_to
+                                 else "Нових відео немає: усе вже завантажено раніше")
             elif job.files:
                 # --ignore-errors: some playlist items failed but others downloaded.
                 job.status, job.percent = "done", 100.0
                 job.error = "Частину відео пропущено: " + sites.friendly_error(
                     last_error_line("\n".join(tail)), job.url, cfg.get("cookies_browser", ""))
+            elif photos.NO_VIDEO.search(last_error_line("\n".join(tail))) and photos.gallery_bin(VENV_DIR):
+                # A post with photos only (or a carousel yt-dlp cannot read): let gallery-dl take it.
+                job.proc = None
+                switch_to_photos(job, cfg, last_error_line("\n".join(tail)))
             else:
                 job.status = "error"
                 job.error = (sites.friendly_error(last_error_line("\n".join(tail)), job.url, cfg.get("cookies_browser", ""))
@@ -462,16 +519,18 @@ def queue_mp4(job: Job, cfg: dict) -> None:
         job.note = f"Конвертую в MP4: {queued}" + (f" · вже MP4: {skipped}" if skipped else "")
 
 
-def start_job(url: str, title: str, quality: str, use_archive: bool, mp4: bool = False) -> Job:
+def start_job(url: str, title: str, quality: str, use_archive: bool, mp4: bool = False,
+              date_from: str = "", date_to: str = "") -> Job:
     if quality not in ("best", "audio") and not str(quality).isdigit():
         raise ValueError("Невідома якість")
     job = Job(url, title, str(quality), use_archive)
     job.mp4 = mp4 and quality != "audio"
+    job.date_from, job.date_to = date_from, date_to
     with jobs_lock:
         # Two identical jobs would race for the same output file.
         for other in jobs.values():
             if (other.status in ("queued", "running") and other.url == url
-                    and other.quality == job.quality):
+                    and other.quality == job.quality and other.kind in ("download", "photos")):
                 raise ValueError("Це вже качається")
         jobs[job.id] = job
     threading.Thread(target=run_job, args=(job,), daemon=True).start()
@@ -718,6 +777,79 @@ def start_asr_setup(engine: str) -> Job:
 
 # ---------- photo posts ----------
 
+def run_gallery(job: Job, cmd: list[str], cfg: dict, total: int = 0) -> tuple[int, list[str], int]:
+    """Run gallery-dl, collecting new files into job.files. Returns (exit code, output tail, skipped)."""
+    tail: list[str] = []
+    skipped = 0
+    job.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                encoding="utf-8", errors="replace", bufsize=1)
+    assert job.proc.stdout is not None
+    for raw in job.proc.stdout:
+        line = raw.strip()
+        existed = line.startswith("# ")  # "# " marks files that were already there (or in the archive)
+        path = line[2:] if existed else line
+        if path and os.path.isfile(path):
+            if existed and total == 0:
+                skipped += 1
+                continue
+            job.files.append(path)
+            job.current = Path(path).name
+            # Profiles have no known total: let the bar creep towards the end as files arrive.
+            job.percent = min(99.0, len(job.files) / total * 100) if total else 100 * (1 - 0.92 ** len(job.files))
+        elif line:
+            tail = (tail + [line])[-10:]
+    return job.proc.wait(), tail, skipped
+
+
+def download_photos(job: Job, cfg: dict, binary: str) -> None:
+    """Fetch a photo post (job.info from photos.probe) into its own folder. Runs inside a job slot."""
+    folder = photos.target_dir(cfg["out_dir"], job.platform, job.info)
+    folder.mkdir(parents=True, exist_ok=True)
+    total = max(1, int(job.info.get("count") or 1))
+    job.status, job.current = "running", folder.name
+    code, tail, _ = run_gallery(job, photos.download_cmd(binary, job.url, folder, cfg.get("cookies_browser", "")),
+                                cfg, total)
+    if job.cancelled:
+        job.status = "cancelled"
+    elif job.files:
+        job.status, job.percent = "done", 100.0
+        if code != 0:
+            job.error = "Частину файлів пропущено: " + sites.friendly_error(
+                last_error_line("\n".join(tail)), job.url, cfg.get("cookies_browser", ""))
+    else:
+        job.status = "error"
+        job.error = (sites.friendly_error(last_error_line("\n".join(tail)), job.url, cfg.get("cookies_browser", ""))
+                     or "gallery-dl нічого не скачав")
+
+
+def set_photo_info(job: Job, info: dict) -> None:
+    platform = sites.detect(job.url)
+    clean = {k: str(info.get(k) or "") for k in ("title", "uploader", "date", "post_id")}
+    clean["count"] = int(info.get("count") or 0)
+    job.info, job.platform = clean, (platform[1] if platform else "Other")
+
+
+def switch_to_photos(job: Job, cfg: dict, ytdlp_error: str = "") -> None:
+    """Turn a download that found no video into a photo-post download (used by pasted links and batches)."""
+    binary = photos.gallery_bin(VENV_DIR)
+    job.status, job.current, job.error = "running", "шукаю фото в пості", ""
+    try:
+        info = photos.probe(binary, job.url, cfg.get("cookies_browser", ""))
+    except subprocess.TimeoutExpired:
+        raise ValueError("Сайт надто довго не відповідає, спробуй ще раз")
+    except ValueError as exc:
+        raise ValueError(sites.friendly_error(str(exc), job.url, cfg.get("cookies_browser", "")))
+    if not info:
+        # Nothing for gallery-dl either: yt-dlp's own message (e.g. "unsupported URL") says more.
+        raise ValueError(sites.friendly_error(ytdlp_error, job.url, cfg.get("cookies_browser", ""))
+                         or "У цьому пості немає ні відео, ні фото")
+    job.kind, job.quality, job.mp4 = "photos", "photos", False
+    set_photo_info(job, info)
+    if job.title == job.url and info.get("title"):
+        job.title = info["title"]
+    download_photos(job, cfg, binary)
+
+
 def run_photos(job: Job) -> None:
     with job_slots:
         if job.cancelled:
@@ -725,34 +857,53 @@ def run_photos(job: Job) -> None:
             return
         cfg = load_settings()
         binary = photos.gallery_bin(VENV_DIR)
-        tail: list[str] = []
         try:
             if not binary:
                 raise RuntimeError("gallery-dl не встановлено: Налаштування → «Інструменти»")
-            folder = photos.target_dir(cfg["out_dir"], job.platform, job.info)
+            download_photos(job, cfg, binary)
+        except Exception as exc:  # surface any launcher failure in the UI
+            job.status, job.error = "error", str(exc)
+        finally:
+            job.proc = None
+
+
+# ---------- Instagram profiles ----------
+
+PROFILE_TABS = {"reels": "рілси", "posts": "пости"}
+
+
+def run_profile(job: Job) -> None:
+    with job_slots:
+        if job.cancelled:
+            job.status = "cancelled"
+            return
+        cfg = load_settings()
+        binary = photos.gallery_bin(VENV_DIR)
+        username, tab = job.info["username"], job.info["tab"]
+        try:
+            if not binary:
+                raise RuntimeError("gallery-dl не встановлено: Налаштування → «Оновити компоненти»")
+            folder = photos.profile_dir(cfg["out_dir"], username)
             folder.mkdir(parents=True, exist_ok=True)
-            total = max(1, int(job.info.get("count") or 1))
-            job.status, job.current = "running", folder.name
-            job.proc = subprocess.Popen(photos.download_cmd(binary, job.url, folder, cfg.get("cookies_browser", "")),
-                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                        encoding="utf-8", errors="replace", bufsize=1)
-            assert job.proc.stdout is not None
-            for raw in job.proc.stdout:
-                line = raw.strip()
-                path = line[2:] if line.startswith("# ") else line  # "# " marks files that already existed
-                if path and os.path.isfile(path):
-                    job.files.append(path)
-                    job.percent = min(99.0, len(job.files) / total * 100)
-                elif line:
-                    tail = (tail + [line])[-10:]
-            code = job.proc.wait()
+            # gallery-dl's --date-before is exclusive; the UI's "to" date is inclusive.
+            before = (date.fromisoformat(job.date_to) + timedelta(days=1)).isoformat() if job.date_to else ""
+            cmd = photos.profile_cmd(binary, username, tab, folder, Path(cfg["out_dir"]) / ".archive-gallery.sqlite3",
+                                     cfg.get("cookies_browser", ""), job.date_from, before)
+            job.status, job.current = "running", "читаю профіль"
+            code, tail, skipped = run_gallery(job, cmd, cfg)
             if job.cancelled:
                 job.status = "cancelled"
-            elif job.files:
-                job.status, job.percent = "done", 100.0
+            elif job.files or code == 0:
+                job.status, job.percent, job.current = "done", 100.0, ""
+                if skipped:
+                    job.note = f"Уже були завантажені раніше: {skipped}"
                 if code != 0:
-                    job.error = "Частину файлів пропущено: " + sites.friendly_error(
+                    job.error = "Частину постів пропущено: " + sites.friendly_error(
                         last_error_line("\n".join(tail)), job.url, cfg.get("cookies_browser", ""))
+                elif not job.files:
+                    job.error = "За цей період нових постів немає" if skipped == 0 else "Нових постів немає"
+                if job.mp4 and job.files:
+                    queue_mp4(job, cfg)
             else:
                 job.status = "error"
                 job.error = (sites.friendly_error(last_error_line("\n".join(tail)), job.url, cfg.get("cookies_browser", ""))
@@ -763,12 +914,72 @@ def run_photos(job: Job) -> None:
             job.proc = None
 
 
+def profile_title(username: str, tab: str, date_from: str, date_to: str) -> str:
+    date_from, date_to = (f"{d[8:10]}.{d[5:7]}.{d[:4]}" if d else "" for d in (date_from, date_to))
+    if date_from and date_to:
+        period = f"{date_from} – {date_to}"
+    elif date_from:
+        period = f"з {date_from}"
+    elif date_to:
+        period = f"до {date_to}"
+    else:
+        period = f"останні {photos.PROFILE_MAX_POSTS}"
+    return f"@{username} · {PROFILE_TABS[tab]} · {period}"
+
+
+def start_profile(url: str, tab: str, date_from: str, date_to: str, mp4: bool) -> Job:
+    profile = sites.instagram_profile(url)
+    if not profile:
+        raise ValueError("Це не посилання на профіль Instagram")
+    if tab not in PROFILE_TABS:
+        raise ValueError("Обери рілси або пости")
+    if not photos.gallery_bin(VENV_DIR):
+        raise ValueError("Для профілів Instagram потрібен gallery-dl: Налаштування → «Оновити компоненти»")
+    username = profile[0]
+    job = Job(f"https://www.instagram.com/{username}/{tab}/", profile_title(username, tab, date_from, date_to),
+              tab, True, kind="profile")
+    job.info = {"username": username, "tab": tab}
+    job.date_from, job.date_to, job.mp4 = date_from, date_to, mp4
+    with jobs_lock:
+        for other in jobs.values():
+            if other.kind == "profile" and other.status in ("queued", "running") and other.url == job.url:
+                raise ValueError("Цей профіль уже качається")
+        jobs[job.id] = job
+    threading.Thread(target=run_profile, args=(job,), daemon=True).start()
+    return job
+
+
+# ---------- batches ----------
+
+def start_batch(urls: list, quality: str, mp4: bool) -> dict:
+    """Queue many links from any sites at once; photo posts are routed to gallery-dl by run_job."""
+    added, errors, seen = [], [], set()
+    duplicates = 0
+    for raw in urls[:200]:
+        raw = str(raw).strip()
+        if not raw:
+            continue
+        try:
+            url = normalize_url(sites.clean_url(raw))
+            if url in seen:
+                duplicates += 1
+                continue
+            seen.add(url)
+            if sites.instagram_profile(url):
+                raise ValueError("Це профіль: встав його окремо на головній, щоб обрати період")
+            job = start_job(url, "", quality, use_archive=True, mp4=mp4)
+            added.append({"url": url, "id": job.id})
+        except ValueError as exc:
+            if str(exc) == "Це вже качається":
+                duplicates += 1
+            else:
+                errors.append({"url": raw, "error": str(exc)})
+    return {"added": added, "errors": errors, "duplicates": duplicates}
+
+
 def start_photos(url: str, info: dict) -> Job:
-    platform = sites.detect(url)
-    clean = {k: str(info.get(k) or "") for k in ("title", "uploader", "date", "post_id")}
-    clean["count"] = int(info.get("count") or 0)
-    job = Job(url, clean["title"] or url, "photos", False, kind="photos")
-    job.info, job.platform = clean, (platform[1] if platform else "Other")
+    job = Job(url, str(info.get("title") or "") or url, "photos", False, kind="photos")
+    set_photo_info(job, info)
     with jobs_lock:
         for other in jobs.values():
             if other.kind == "photos" and other.status in ("queued", "running") and other.url == url:
@@ -1172,9 +1383,22 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(fetch_info(normalize_url(str(data.get("url", "")))))
             elif path == "/api/download":
                 mp4 = bool(data.get("mp4", load_settings().get("auto_mp4")))
+                date_from, date_to = parse_dates(data)
                 job = start_job(normalize_url(str(data.get("url", ""))), str(data.get("title") or ""),
-                                str(data.get("quality", "best")), use_archive=data.get("kind") != "video", mp4=mp4)
+                                str(data.get("quality", "best")), use_archive=data.get("kind") != "video", mp4=mp4,
+                                date_from=date_from, date_to=date_to)
                 self._send_json(job.to_json())
+            elif path == "/api/profile":
+                date_from, date_to = parse_dates(data)
+                mp4 = bool(data.get("mp4", load_settings().get("auto_mp4")))
+                self._send_json(start_profile(normalize_url(str(data.get("url", ""))), str(data.get("tab") or "reels"),
+                                              date_from, date_to, mp4).to_json())
+            elif path == "/api/batch":
+                urls = data.get("urls") or []
+                if not isinstance(urls, list) or not urls:
+                    raise ValueError("Встав хоча б одне посилання")
+                mp4 = bool(data.get("mp4", load_settings().get("auto_mp4")))
+                self._send_json(start_batch(urls, str(data.get("quality", "best")), mp4))
             elif path == "/api/probe":
                 src = Path(os.path.expanduser(str(data.get("path", "")).strip())).resolve()
                 if not src.is_file():
