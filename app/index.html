@@ -162,6 +162,23 @@
   .entry:last-child { border-bottom: 0; }
   .entry .n { color: var(--faint); width: 26px; flex: none; text-align: right; }
   .entry .d { margin-left: auto; color: var(--faint); flex: none; }
+  .period { margin: 0 0 14px; }
+  .period-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button { height: 30px; padding: 0 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); color: #cfd4de; font-size: 12.5px; font-weight: 500; }
+  .seg button:hover { color: #fff; border-color: var(--border-strong); }
+  .seg button.on { background: #26315a; border-color: #3a4ea8; color: #fff; }
+  .period-custom { display: flex; gap: 8px; align-items: center; margin-top: 8px; color: var(--muted); font-size: 12.5px; }
+  .period-custom[hidden] { display: none; }
+  .period-custom input { height: 32px; width: 150px; color-scheme: dark; }
+  .profile-tile { aspect-ratio: 16/9; border-radius: 10px; display: grid; place-items: center; color: #fff; font-size: 44px; font-weight: 800; letter-spacing: -.02em; background: linear-gradient(135deg, #feda75, #d62976 50%, #4f5bd5); }
+  .profile-go { width: 100%; }
+  .profile-note { color: var(--muted); font-size: 12.5px; margin-top: 10px; line-height: 1.5; }
+  .result .alert { margin: 0 0 14px; }
+  .batch-result { margin-top: 12px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 13px; background: var(--surface); line-height: 1.5; }
+  .batch-result .bad { color: #ffb4bb; margin-top: 6px; }
+  .batch-result ul { margin: 4px 0 0; padding-left: 18px; }
+  .batch-result li { overflow-wrap: anywhere; margin-top: 4px; }
   .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
   .photo-grid.single { grid-template-columns: minmax(0, 300px); }
   .photo-grid img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 9px; background: var(--surface-2); display: block; }
@@ -313,7 +330,7 @@
     <div class="platforms" id="platforms"></div>
     <div class="links">та ще понад тисяча сайтів · <a href="#" id="batch-link">кілька посилань одразу</a> · <a href="#" id="txt-link">посилання з .txt</a><input type="file" id="txt-input" accept=".txt,.csv,text/plain" multiple hidden></div>
     <div class="batch" id="batch" hidden>
-      <textarea class="field-input" id="batch-urls" rows="6" placeholder="Кожне посилання з нового рядка: відео, плейлисти, канали"></textarea>
+      <textarea class="field-input" id="batch-urls" rows="6" placeholder="Кожне посилання з нового рядка: YouTube, Instagram, TikTok і будь-що ще. Фото-пости теж"></textarea>
       <div class="row">
         <select class="field-input" id="batch-quality">
           <option value="best">Найкраща якість</option><option value="2160">До 4K</option><option value="1440">До 1440p</option>
@@ -322,6 +339,7 @@
         <label class="check"><input type="checkbox" data-mp4> Одразу в MP4</label>
         <button class="btn primary" id="batch-go">Завантажити все</button>
       </div>
+      <div class="batch-result" id="batch-result" hidden></div>
     </div>
     <div id="result">
       <div class="features">
@@ -659,6 +677,7 @@ function metaLine(info, extra) {
 function renderResult() {
   const info = state.info;
   if (!info) return;
+  if (info.kind === "profile") return renderProfile(info);
   if (info.kind === "photos") {
     const extra = [info.videos ? `${info.videos} відео` : "", info.audio ? "музика" : ""].filter(Boolean).join(" + ");
     const previews = info.previews || [];
@@ -687,7 +706,7 @@ function renderResult() {
     const cards = [qCard("best", "Усе в найкращій", `${info.count} відео`, "best"), qCard(2160, "До 4K"), qCard(1440, "До 2K"),
       qCard(1080, "До 1080p"), qCard(720, "До 720p"), qCard("audio", "Лише аудіо", "MP3 320 kbps", "audio")];
     if (info.can_photos) cards.push('<button class="q photos" id="photos-all"><b>Усе з поста, разом з фото</b><span>через gallery-dl</span></button>');
-    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info, info.count + " відео")}<div class="qgrid">${cards.join("")}</div>${mp4Toggle()}<div class="entries">${entries}${more}</div>`;
+    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info, info.count + " відео")}${periodHtml("all")}<div class="qgrid">${cards.join("")}</div>${mp4Toggle()}<div class="entries">${entries}${more}</div>`;
   }
   // A dead preview keeps the empty frame instead of a broken-image icon.
   const thumb = info.thumbnail ? `<img class="thumb" src="${esc(info.thumbnail)}" alt="" referrerpolicy="no-referrer" onerror="this.removeAttribute('src')">` : `<div class="thumb"></div>`;
@@ -695,6 +714,10 @@ function renderResult() {
   $("#result").innerHTML = `<div class="result"><div class="thumb-wrap">${thumb}${dur}</div><div>${right}</div></div>`;
   document.querySelectorAll("#result .q[data-q]").forEach((b) => b.addEventListener("click", () => download(b.dataset.q)));
   bindMp4Toggle($("#result"));
+  bindPeriod($("#result"), () => {
+    const sub = $("#result .q.best span");
+    if (sub) sub.textContent = state.period === "all" ? `${info.count} відео` : "лише за обраний період";
+  });
   if ($("#photos-all")) $("#photos-all").addEventListener("click", () => downloadPhotos({ title: info.title, uploader: info.uploader, count: 0 }));
 }
 async function downloadPhotos(info) {
@@ -715,11 +738,106 @@ function wantMp4() {
   return !!(state.settings && state.settings.auto_mp4);
 }
 async function download(quality) {
+  const dates = state.info && state.info.kind === "playlist" ? periodDates() : {};
+  if (!dates) return;
   try {
-    await api("/api/download", { url: state.url, title: state.info && state.info.title, kind: state.info && state.info.kind, quality, mp4: wantMp4() });
-    toast(`Додано в чергу: ${qualityLabel(quality)}${wantMp4() && quality !== "audio" ? " → MP4" : ""}`);
+    await api("/api/download", { url: state.url, title: state.info && state.info.title, kind: state.info && state.info.kind, quality, mp4: wantMp4(), ...dates });
+    toast(`Додано в чергу: ${qualityLabel(quality)}${wantMp4() && quality !== "audio" ? " → MP4" : ""}${dates.date_from || dates.date_to ? " · " + periodText(dates) : ""}`);
     loadJobs();
   } catch (e) { toast(e.message); }
+}
+
+// ---------- period: a date range for channels, playlists and profiles ----------
+const PERIODS = [["all", "Увесь час"], ["7", "7 днів"], ["30", "30 днів"], ["90", "3 місяці"], ["custom", "Свої дати"]];
+function isoDay(d) {
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+function periodHtml(selected, label = "Період") {
+  state.period = selected;
+  return `<div class="period"><div class="period-label">${esc(label)}</div>
+    <div class="seg" data-period>${PERIODS.map(([k, l]) => `<button type="button" data-p="${k}" class="${k === selected ? "on" : ""}">${l}</button>`).join("")}</div>
+    <div class="period-custom" data-custom ${selected === "custom" ? "" : "hidden"}>з <input type="date" class="field-input" data-from> по <input type="date" class="field-input" data-to></div></div>`;
+}
+function bindPeriod(root, onChange) {
+  const box = root.querySelector("[data-period]");
+  if (!box) return;
+  const today = isoDay(new Date());
+  const from = root.querySelector("[data-from]"), to = root.querySelector("[data-to]");
+  from.value = isoDay(new Date(Date.now() - 29 * 864e5));
+  to.value = today;
+  from.max = to.max = today;
+  box.addEventListener("click", (ev) => {
+    const b = ev.target.closest("button");
+    if (!b) return;
+    state.period = b.dataset.p;
+    box.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    root.querySelector("[data-custom]").hidden = state.period !== "custom";
+    if (onChange) onChange();
+  });
+  [from, to].forEach((input) => input.addEventListener("change", () => onChange && onChange()));
+}
+// {date_from, date_to} for the API ({} = all time), or null after telling the user what is wrong.
+function periodDates() {
+  const p = state.period || "all";
+  if (p === "all") return {};
+  if (p !== "custom") return { date_from: isoDay(new Date(Date.now() - (+p - 1) * 864e5)) };
+  const from = $("#result [data-from]").value, to = $("#result [data-to]").value;
+  if (!from && !to) { toast("Обери дати"); return null; }
+  if (from && to && from > to) { toast("Початкова дата пізніша за кінцеву"); return null; }
+  return { date_from: from, date_to: to };
+}
+function periodText(d) {
+  const f = (x) => x.split("-").reverse().join(".");
+  if (d.date_from && d.date_to) return `${f(d.date_from)} – ${f(d.date_to)}`;
+  if (d.date_from) return `з ${f(d.date_from)}`;
+  return d.date_to ? `до ${f(d.date_to)}` : "";
+}
+
+// ---------- Instagram profile ----------
+function renderProfile(info) {
+  state.profileTab = info.tab || "reels";
+  const warn = !info.has_gallery
+    ? `<div class="alert">Для профілів потрібен gallery-dl. Відкрий Налаштування й натисни «Оновити компоненти».<br><button class="btn primary" data-goto="settings">Відкрити налаштування</button></div>`
+    : !info.has_cookies
+      ? `<div class="alert info">Instagram показує профілі лише після входу. У Налаштуваннях обери в «Cookies з браузера» браузер, де ти залогінений в Instagram.<br><button class="btn primary" data-goto="settings">Відкрити налаштування</button></div>`
+      : "";
+  const tabs = [["reels", "Рілси"], ["posts", "Усі пости"]]
+    .map(([k, l]) => `<button type="button" data-tab="${k}" class="${k === state.profileTab ? "on" : ""}">${l}</button>`).join("");
+  $("#result").innerHTML = `<div class="result">
+    <div class="profile-tile">@${esc(info.uploader.slice(0, 1).toUpperCase())}</div>
+    <div>
+      <div class="meta-title selectable">${esc(info.title)}</div>${metaLine({ platform: info.platform, uploader: "профіль" })}
+      ${warn}
+      <div class="period"><div class="period-label">Що качати</div><div class="seg" data-tabs>${tabs}</div></div>
+      ${periodHtml("30")}
+      <button class="q best profile-go" id="profile-go"><b></b><span></span></button>
+      <div class="profile-note">Беру до ${info.max_posts} останніх постів, закріплені пропускаю. Instagram відповідає повільно, тож кілька десятків рілсів качаються кілька хвилин. Повторний запуск докачає лише нові.</div>
+    </div></div>`;
+  const update = () => {
+    const d = state.period === "custom" ? { date_from: $("#result [data-from]").value, date_to: $("#result [data-to]").value } : null;
+    const span = state.period === "all" ? `останні ${info.max_posts}` : d ? periodText(d) || "свої дати" : PERIODS.find((p) => p[0] === state.period)[1].replace(/^(\d)/, "за $1");
+    $("#profile-go b").textContent = `Скачати ${state.profileTab === "posts" ? "пости" : "рілси"}`;
+    $("#profile-go span").textContent = span + " · найкраща якість";
+  };
+  $("#result [data-tabs]").addEventListener("click", (ev) => {
+    const b = ev.target.closest("button");
+    if (!b) return;
+    state.profileTab = b.dataset.tab;
+    $("#result [data-tabs]").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    update();
+  });
+  bindPeriod($("#result"), update);
+  update();
+  bindGoto($("#result"));
+  $("#profile-go").addEventListener("click", async () => {
+    const dates = periodDates();
+    if (!dates) return;
+    try {
+      await api("/api/profile", { url: state.url, tab: state.profileTab, mp4: wantMp4(), ...dates });
+      toast("Профіль додано в чергу");
+      show("queue");
+    } catch (e) { toast(e.message); }
+  });
 }
 
 // ---------- batch ----------
@@ -733,14 +851,28 @@ $("#batch-link").addEventListener("click", (ev) => {
 $("#batch-go").addEventListener("click", async () => {
   const urls = extractUrls($("#batch-urls").value);
   if (!urls.length) return toast("Встав хоча б одне посилання");
-  const quality = $("#batch-quality").value;
-  let ok = 0;
-  for (const url of urls) {
-    try { await api("/api/download", { url, quality, mp4: wantMp4() }); ok++; }
-    catch (e) { toast(url + ": " + e.message); }
-  }
-  if (ok) { toast(`Додано в чергу: ${ok}`); $("#batch-urls").value = ""; show("queue"); }
+  const btn = $("#batch-go");
+  btn.disabled = true;
+  try {
+    const res = await api("/api/batch", { urls, quality: $("#batch-quality").value, mp4: wantMp4() });
+    renderBatchResult(res);
+    // Keep only the links that did not go through, so they can be fixed and sent again.
+    $("#batch-urls").value = res.errors.map((e) => e.url).join("\n");
+    if (res.added.length) loadJobs();
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; }
 });
+function renderBatchResult(res) {
+  const head = [`Додано в чергу: <b>${res.added.length}</b>`];
+  if (res.duplicates) head.push(`повтори пропущено: ${res.duplicates}`);
+  const errors = res.errors.length
+    ? `<div class="bad">Не додано: ${res.errors.length}</div><ul>${res.errors.map((e) => `<li><span class="muted">${esc(e.url)}</span><br>${esc(e.error)}</li>`).join("")}</ul>`
+    : "";
+  const box = $("#batch-result");
+  box.innerHTML = `<div class="row" style="gap:10px">${head.join(" · ")}${res.added.length ? '<button class="chip-btn accent" data-goto="queue">Відкрити чергу</button>' : ""}</div>${errors}`;
+  box.hidden = false;
+  bindGoto(box);
+}
 
 // ---------- queue ----------
 function jobTag(j) {
@@ -748,6 +880,7 @@ function jobTag(j) {
   if (j.kind === "convert") return "→ " + esc(j.quality);
   if (j.kind === "transcribe") return "SRT · " + esc(j.quality);
   if (j.kind === "photos") return "фото";
+  if (j.kind === "profile") return j.quality === "posts" ? "пости" : "рілси";
   return esc(qualityLabel(j.quality)) + (j.mp4 ? " → MP4" : "");
 }
 async function loadJobs() {
@@ -785,6 +918,7 @@ async function loadJobs() {
           ${j.speed ? `<span>${esc(j.speed)}</span>` : ""}
           ${j.eta ? `<span>залишилось ${esc(j.eta)}</span>` : ""}
           ${j.files.length > 1 ? `<span>файлів: ${j.files.length}</span>` : ""}
+          ${j.kind === "download" && (j.date_from || j.date_to) ? `<span>${esc(periodText(j))}</span>` : ""}
           ${j.current && j.current !== j.title ? `<span>${esc(j.current)}</span>` : ""}
         </div>
         ${j.note ? `<div class="job-note${/^Готово/.test(j.note) ? " ok" : ""}">${esc(j.note)}</div>` : ""}

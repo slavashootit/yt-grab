@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 # (key, display name, host suffixes). Order matters only for display.
 PLATFORMS = (
@@ -31,6 +31,36 @@ def detect(url: str) -> tuple[str, str] | None:
         if any(host == s or host.endswith("." + s) for s in suffixes):
             return key, name
     return None
+
+
+# TikTok slideshows are photo posts that yt-dlp does not support at all.
+PHOTO_POST = re.compile(r"tiktok\.com/@[^/]+/photo/", re.I)
+
+# Share/tracking parameters: dropping them lets the same post pasted twice be recognised as one.
+_TRACKING = re.compile(r"^(utm_\w+|igsh|igshid|si|fbclid|gclid|feature|is_from_webapp|sender_device|"
+                       r"share_\w+|_r|_t|ref|ref_src|ref_url)$", re.I)
+
+# First path segments on instagram.com that are not usernames.
+_IG_RESERVED = {"p", "reel", "reels", "tv", "stories", "explore", "accounts", "direct", "about",
+                "developer", "legal", "web", "challenge", "s", "share"}
+
+
+def clean_url(url: str) -> str:
+    parts = urlparse(url.strip())
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not _TRACKING.match(k)]
+    return urlunparse(parts._replace(query=urlencode(query), fragment=""))
+
+
+def instagram_profile(url: str) -> tuple[str, str] | None:
+    """Return (username, tab) for an Instagram profile link; tab is "reels" (default) or "posts"."""
+    parts = urlparse(url)
+    host = (parts.hostname or "").lower()
+    if host != "instagram.com" and not host.endswith(".instagram.com"):
+        return None
+    match = re.match(r"^/([A-Za-z0-9._]{1,30})/?(?:(reels|posts)/?)?$", parts.path)
+    if not match or match.group(1).lower() in _IG_RESERVED:
+        return None
+    return match.group(1), match.group(2) or "reels"
 
 
 def output_template(url: str) -> str:
