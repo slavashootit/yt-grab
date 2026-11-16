@@ -6,24 +6,26 @@
 <title>YT Grab</title>
 <style>
   :root {
-    --bg: #131519;
-    --sidebar: #0e1013;
-    --surface: #1a1d23;
-    --surface-2: #22262e;
-    --surface-3: #2a2f39;
-    --border: #2a2f38;
-    --border-strong: #3a414d;
-    --text: #eceef2;
-    --muted: #8d95a5;
-    --faint: #626a79;
-    --accent: #6d8bff;
-    --accent-2: #a46bff;
-    --grad: linear-gradient(135deg, #6d8bff 0%, #a46bff 100%);
-    --ok: #34d399;
-    --warn: #fbbf24;
-    --err: #f87171;
+    --bg: #141312;
+    --sidebar: #100f0e;
+    --surface: #1d1c1a;
+    --surface-2: #262422;
+    --surface-3: #302d2a;
+    --border: #ffffff12;
+    --border-strong: #ffffff24;
+    --text: #f3efe9;
+    --muted: #a29b92;
+    --faint: #857e75;
+    --accent: #ff6b4a;
+    --accent-2: #ff6b4a;
+    --on-accent: #1a0d08;
+    --grad: var(--accent);
+    --ok: #7fd49a;
+    --warn: #f2c14e;
+    --err: #ff8a7a;
     --radius: 12px;
     --radius-sm: 8px;
+    --ease-out: cubic-bezier(.2, .8, .2, 1);
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
@@ -36,10 +38,10 @@
   input, textarea, .selectable { user-select: text; -webkit-user-select: text; }
   button { font: inherit; cursor: pointer; border: 0; color: inherit; background: none; }
   input, select, textarea { font: inherit; color: var(--text); }
-  a { color: #9db2ff; text-decoration: none; }
+  a { color: #ffa58f; text-decoration: none; }
   a:hover { text-decoration: underline; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: #2c313b; border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb { background: #34302c; border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
   ::-webkit-scrollbar-track { background: transparent; }
   .num { font-variant-numeric: tabular-nums; }
 
@@ -50,19 +52,19 @@
   }
   body.native aside { padding-top: 46px; }
   .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 18px; }
-  .logo { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--grad); color: #fff; box-shadow: 0 4px 14px #6d8bff40; }
+  .logo { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--grad); color: #fff; box-shadow: none; }
   .brand b { font-size: 15px; letter-spacing: -.01em; }
   .brand small { display: block; color: var(--faint); font-size: 11px; line-height: 1.2; }
   .nav-group { color: var(--faint); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 14px 10px 6px; }
   .nav {
     display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; width: 100%;
-    color: #b7bdc9; text-align: left; transition: background .12s, color .12s;
+    color: #b3aca2; text-align: left; transition: background .12s, color .12s;
   }
-  .nav:hover { background: #181b21; color: var(--text); }
+  .nav:hover { background: #1b1a18; color: var(--text); }
   .nav.active { background: var(--surface-2); color: #fff; }
   .nav.active svg { color: var(--accent); }
   .nav svg { width: 17px; height: 17px; flex: none; color: var(--muted); }
-  .badge { margin-left: auto; min-width: 20px; padding: 0 6px; border-radius: 10px; background: #2b3550; color: #c6d2ff; font-size: 11px; line-height: 18px; text-align: center; }
+  .badge { margin-left: auto; min-width: 20px; padding: 0 6px; border-radius: 10px; background: #3a2a24; color: #ffc9bb; font-size: 11px; line-height: 18px; text-align: center; }
   .badge:empty { display: none; }
   .side-foot { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); }
   .status-line { display: flex; align-items: center; gap: 7px; padding: 8px 10px 0; color: var(--faint); font-size: 11.5px; }
@@ -74,7 +76,7 @@
   body.native main { padding-top: 46px; }
   .view { display: none; max-width: 1020px; margin: 0 auto; animation: fade .18s ease; }
   .view.active { display: block; }
-  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes fade { from { transform: translateY(4px); } to { transform: none; } }
   .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
   h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
   h2 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
@@ -85,25 +87,25 @@
 
   /* ---------- controls ---------- */
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 34px; padding: 0 16px; border-radius: 9px; background: var(--surface-3); font-weight: 600; transition: filter .12s, transform .06s, background .12s; white-space: nowrap; }
-  .btn:hover { background: #333946; }
+  .btn:hover { background: #3a3632; }
   .btn:active { transform: scale(.98); }
-  .btn.primary { background: var(--grad); color: #fff; box-shadow: 0 4px 16px #6d8bff33; }
+  .btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: none; }
   .btn.primary:hover { filter: brightness(1.08); }
   .btn.big { height: 42px; padding: 0 22px; font-size: 14px; }
   .btn.block { width: 100%; }
   .btn:disabled { opacity: .45; cursor: default; box-shadow: none; transform: none; }
-  .chip-btn { height: 28px; padding: 0 11px; border-radius: 7px; background: var(--surface-2); color: #cfd4de; font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  .chip-btn { height: 28px; padding: 0 11px; border-radius: 7px; background: var(--surface-2); color: #ddd6cc; font-size: 12.5px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; flex: none; }
   .chip-btn:hover { background: var(--surface-3); color: #fff; }
-  .chip-btn.accent { background: #26315a; color: #d4ddff; }
-  .chip-btn.accent:hover { background: #2f3d70; }
+  .chip-btn.accent { background: #3a2620; color: #ffd2c6; }
+  .chip-btn.accent:hover { background: #4a2f27; }
   .field-input, select.field-input, textarea.field-input {
-    width: 100%; height: 36px; background: #101216; border: 1px solid var(--border-strong); border-radius: 9px;
+    width: 100%; height: 36px; background: #11100f; border: 1px solid var(--border-strong); border-radius: 9px;
     padding: 0 12px; outline: none; transition: border-color .12s, box-shadow .12s;
   }
   textarea.field-input { height: auto; padding: 10px 12px; resize: vertical; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #6d8bff2e; }
+  .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #ff6b4a33; }
   select.field-input { width: auto; padding-right: 30px; }
-  .check { display: flex; align-items: center; gap: 9px; color: #c7ccd6; cursor: pointer; }
+  .check { display: flex; align-items: center; gap: 9px; color: #d3cbc0; cursor: pointer; }
   .check input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
   .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .muted { color: var(--muted); }
@@ -117,18 +119,18 @@
     display: flex; align-items: center; gap: 8px; max-width: 680px; margin: 0 auto; padding: 6px 6px 6px 16px;
     background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; transition: border-color .15s, box-shadow .15s;
   }
-  .urlbar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px #6d8bff26; }
+  .urlbar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px #ff6b4a2b; }
   .urlbar svg { color: var(--faint); flex: none; }
   .urlbar input { flex: 1; min-width: 0; height: 40px; background: none; border: 0; outline: none; font-size: 15px; }
   .platforms { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 680px; margin: 14px auto 6px; }
   .pf { font-size: 11.5px; padding: 3px 10px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); transition: .15s; }
-  .pf.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pf.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   .links { text-align: center; color: var(--faint); font-size: 12.5px; margin-bottom: 22px; }
   .batch { max-width: 680px; margin: 0 auto 24px; }
   .batch .row { margin-top: 10px; }
   .batch .btn { margin-left: auto; }
-  .alert { max-width: 680px; margin: 0 auto 18px; padding: 12px 14px; border-radius: 10px; background: #2a1719; border: 1px solid #5a2a31; color: #ffd0d5; }
-  .alert.info { background: #172036; border-color: #2f4170; color: #d3defd; }
+  .alert { max-width: 680px; margin: 0 auto 18px; padding: 12px 14px; border-radius: 10px; background: #2c1714; border: 1px solid #5c2c24; color: #ffd3c9; }
+  .alert.info { background: #1f1b17; border-color: #3b3128; color: #ece4d8; }
   .alert code, .card code { background: #00000055; padding: 1px 6px; border-radius: 5px; font-size: 12px; }
   .alert .btn { margin-top: 10px; }
   .features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 760px; margin: 26px auto 0; }
@@ -143,19 +145,18 @@
   .duration { position: absolute; right: 8px; bottom: 8px; background: #000000b3; padding: 1px 7px; border-radius: 6px; font-size: 12px; font-weight: 600; }
   .meta-title { font-weight: 700; font-size: 17px; line-height: 1.35; margin: 2px 0 6px; letter-spacing: -.01em; }
   .meta-sub { color: var(--muted); margin-bottom: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .pf-badge { font-size: 11.5px; padding: 1px 8px; border-radius: 6px; background: #26315a; color: #cdd8ff; font-weight: 600; }
+  .pf-badge { font-size: 11.5px; padding: 1px 8px; border-radius: 6px; background: #3a2620; color: #ffd2c6; font-weight: 600; }
   .qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
   .q { text-align: left; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); transition: border-color .12s, background .12s, transform .06s; }
-  .q:hover { border-color: var(--accent); background: #262c3a; }
+  .q:hover { border-color: var(--accent); background: #2c2724; }
   .q:active { transform: scale(.98); }
   .q b { display: block; font-size: 16px; letter-spacing: -.01em; }
   .q span { display: block; color: var(--muted); font-size: 11.5px; }
-  .q.best { background: var(--grad); border-color: transparent; color: #fff; grid-column: span 2; }
-  .q.best span { color: #ffffffcc; }
-  .q.audio b { color: #e2b4ff; }
-  .q.photos { background: linear-gradient(135deg, #c026d3, #7c3aed); border-color: transparent; color: #fff; grid-column: 1 / -1; }
-  .q.photos span { color: #ffffffcc; }
-  .mp4-toggle { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #15181e; }
+  .q.best { background: var(--accent); border-color: transparent; color: var(--on-accent); grid-column: span 2; }
+  .q.best span { color: #1a0d08b3; }
+  .q.audio b { color: #e8c48f; }
+  .q.photos { background: var(--surface-3); border-color: var(--border-strong); grid-column: 1 / -1; }
+  .mp4-toggle { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #191816; }
   .mp4-toggle .muted { font-size: 12px; }
   .entries { margin-top: 14px; max-height: 250px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; }
   .entry { display: flex; gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--border); }
@@ -165,9 +166,9 @@
   .period { margin: 0 0 14px; }
   .period-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
-  .seg button { height: 30px; padding: 0 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); color: #cfd4de; font-size: 12.5px; font-weight: 500; }
+  .seg button { height: 30px; padding: 0 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); color: #ddd6cc; font-size: 12.5px; font-weight: 500; }
   .seg button:hover { color: #fff; border-color: var(--border-strong); }
-  .seg button.on { background: #26315a; border-color: #3a4ea8; color: #fff; }
+  .seg button.on { background: #3a2620; border-color: #8a3d2c; color: #fff; }
   .period-custom { display: flex; gap: 8px; align-items: center; margin-top: 8px; color: var(--muted); font-size: 12.5px; }
   .period-custom[hidden] { display: none; }
   .period-custom input { height: 32px; width: 150px; color-scheme: dark; }
@@ -182,7 +183,7 @@
   .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
   .photo-grid.single { grid-template-columns: minmax(0, 300px); }
   .photo-grid img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 9px; background: var(--surface-2); display: block; }
-  .spinner { width: 30px; height: 30px; margin: 40px auto; border-radius: 50%; border: 3px solid #2c3240; border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  .spinner { width: 30px; height: 30px; margin: 40px auto; border-radius: 50%; border: 3px solid #34302c; border-top-color: var(--accent); animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ---------- queue ---------- */
@@ -193,12 +194,12 @@
   .job-body { flex: 1; min-width: 0; }
   .job-top { display: flex; gap: 10px; align-items: center; }
   .job-title { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tag { font-size: 11px; padding: 1px 8px; border-radius: 6px; background: var(--surface-2); color: #c5cde0; flex: none; font-weight: 600; }
-  .tag.running { background: #26315a; color: #cdd8ff; }
+  .tag { font-size: 11px; padding: 1px 8px; border-radius: 6px; background: var(--surface-2); color: #d8cfc4; flex: none; font-weight: 600; }
+  .tag.running { background: #3a2620; color: #ffd2c6; }
   .tag.done { background: #123326; color: #8ff0c4; }
   .tag.error { background: #3b1a1e; color: #ffb4bb; }
   .tag.cancelled { background: #2c2c2c; color: #bbb; }
-  .bar { height: 4px; background: #0f1115; border-radius: 3px; margin: 10px 0 6px; overflow: hidden; }
+  .bar { height: 4px; background: #100f0e; border-radius: 3px; margin: 10px 0 6px; overflow: hidden; }
   .bar > div { height: 100%; background: var(--grad); width: 0; transition: width .3s; border-radius: 3px; }
   .job.done .bar > div { background: var(--ok); }
   .job.error .bar > div { background: var(--err); }
@@ -213,9 +214,9 @@
   .files { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
   .file { display: flex; align-items: center; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--border); }
   .file:last-child { border-bottom: 0; }
-  .file:hover { background: #1e2128; }
+  .file:hover { background: #22201e; }
   .ftype { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex: none; background: var(--surface-2); color: var(--muted); }
-  .ftype.video { color: #7ea0ff; } .ftype.audio { color: #d6a3ff; } .ftype.image { color: #6ee7b7; }
+  .ftype.video { color: #ffa58f; } .ftype.audio { color: #e8c48f; } .ftype.image { color: #6ee7b7; }
   .file-main { flex: 1; min-width: 0; }
   .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .file-sub { color: var(--faint); font-size: 12px; }
@@ -227,7 +228,7 @@
   .dropzone { border: 1.5px dashed var(--border-strong); border-radius: 11px; padding: 18px; text-align: center; color: var(--muted); margin-bottom: 12px; transition: .15s; }
   .dropzone svg { color: var(--faint); display: block; margin: 0 auto 6px; }
   .dropzone .row { justify-content: center; margin-top: 10px; }
-  .view.dragging .dropzone, .view.dragging .urlbar { border-color: var(--accent); background: #1b2440; color: #dbe4ff; }
+  .view.dragging .dropzone, .view.dragging .urlbar { border-color: var(--accent); background: #2a1d18; color: #ffe0d8; }
   .sel { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
   .sel:last-child { border-bottom: 0; }
   .sel-main { flex: 1; min-width: 0; }
@@ -238,7 +239,7 @@
   .pick { max-height: 280px; overflow-y: auto; margin-top: 8px; }
   .option { display: flex; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: border-color .12s, background .12s; }
   .option:hover { border-color: var(--border-strong); }
-  .option.on { border-color: var(--accent); background: #1d2438; }
+  .option.on { border-color: var(--accent); background: #2a1e19; }
   .option.off { opacity: .5; cursor: default; }
   .option input[type=radio] { accent-color: var(--accent); width: 16px; height: 16px; margin: 2px 0 0; flex: none; }
   .option-main { flex: 1; min-width: 0; }
@@ -263,7 +264,7 @@
 
   .toast {
     position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(16px); max-width: 560px;
-    background: #20242c; border: 1px solid var(--border-strong); padding: 10px 16px; border-radius: 12px;
+    background: #24221f; border: 1px solid var(--border-strong); padding: 10px 16px; border-radius: 12px;
     box-shadow: 0 12px 32px #00000066; opacity: 0; transition: .2s; pointer-events: none; z-index: 10;
   }
   .toast.show { opacity: 1; transform: translateX(-50%); }
@@ -277,6 +278,114 @@
     .result, .grid-2, .features, .setting { grid-template-columns: 1fr; }
     .search { width: 100%; }
   }
+
+  /* ---------- design B: icon rail ---------- */
+  button:focus-visible, a:focus-visible, input[type=checkbox]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  aside { width: 64px; align-items: center; gap: 4px; padding: 18px 10px 14px; border-right: 0; }
+  body.native aside { padding-top: 46px; }
+  .brand { display: none; }
+  .nav-group { height: 12px; padding: 0; font-size: 0; }
+  .nav { position: relative; width: 44px; height: 40px; padding: 0; justify-content: center; border-radius: 10px; font-size: 0; color: var(--muted); }
+  .nav svg { width: 19px; height: 19px; color: inherit; }
+  .nav:hover { background: var(--surface); color: var(--text); }
+  .nav.active, .nav.active svg { background: var(--surface-2); color: var(--text); }
+  .nav.active svg { background: none; }
+  .badge { position: absolute; top: 2px; right: 1px; margin: 0; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; font-size: 10.5px; line-height: 17px; font-weight: 700; background: var(--accent); color: var(--on-accent); }
+  #badge-downloads { background: var(--surface-3); color: var(--muted); }
+  .side-foot { display: flex; flex-direction: column; align-items: center; gap: 10px; border-top: 0; }
+  .status-line { padding: 0; justify-content: center; }
+  #status-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  main { padding: 26px 28px 40px; }
+
+  /* ---------- design B: home = preview + queue dock ---------- */
+  #view-home.active { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; max-width: none; align-items: start; }
+  .stage { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  #view-home .urlbar { max-width: none; margin: 0; padding: 4px 4px 4px 14px; border-radius: 12px; border-color: transparent; background: var(--surface); }
+  #view-home .urlbar:focus-within { border-color: var(--border-strong); box-shadow: none; }
+  .url-pf { flex: none; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--surface-3); color: var(--text); }
+  .url-pf[hidden] { display: none; }
+  #view-home .links { text-align: left; margin: -4px 0 0 2px; }
+  #view-home .alert, #view-home .batch { max-width: none; margin: 0; }
+  #view-home .batch .btn { margin-left: auto; }
+  .empty-stage { aspect-ratio: 16 / 9; border-radius: 14px; border: 1.5px dashed var(--border-strong); display: grid; place-items: center; text-align: center; color: var(--muted); padding: 24px; }
+  .empty-stage svg { color: var(--faint); margin-bottom: 10px; }
+  .empty-stage b { display: block; color: var(--text); font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .empty-stage span { display: block; max-width: 44ch; margin: 0 auto; text-wrap: pretty; }
+  .view.dragging .empty-stage { border-color: var(--accent); background: #2a1d18; color: #ffe0d8; }
+
+  .preview { display: flex; flex-direction: column; gap: 14px; }
+  .hero-card { position: relative; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: var(--surface-2); animation: hero-in .42s var(--ease-out); }
+  .hero-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .hero-card::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, #14131200 42%, #141312eb 100%); }
+  .hero-cap { position: absolute; left: 20px; right: 20px; bottom: 16px; z-index: 1; display: flex; align-items: flex-end; gap: 16px; }
+  .hero-title { font-size: 20px; font-weight: 650; letter-spacing: -.015em; line-height: 1.25; max-width: 38ch; text-wrap: balance;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .hero-sub { color: #ece4d8cc; margin-top: 4px; }
+  .hero-dur { margin-left: auto; flex: none; background: #000000a6; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .hero-card.skeleton { animation: shimmer 1.4s linear infinite; background: linear-gradient(100deg, var(--surface-2) 35%, var(--surface-3) 50%, var(--surface-2) 65%) 0 0 / 300% 100%; }
+  .hero-card.skeleton::after { display: none; }
+  .skel-line { height: 38px; width: 60%; border-radius: 10px; background: var(--surface); }
+  @keyframes hero-in { from { transform: scale(.985); } to { transform: none; } }
+  @keyframes shimmer { to { background-position: -300% 0; } }
+
+  .pick { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .seg.seg-q { flex-wrap: nowrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface); }
+  .seg-q button { height: 32px; padding: 0 13px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-weight: 550; transition: background .15s, color .15s; }
+  .seg-q button:hover { color: var(--text); }
+  .seg-q button.on { background: var(--surface-3); color: var(--text); box-shadow: inset 0 1px 0 #ffffff14; }
+  .pick-size { color: var(--muted); }
+  .pick .btn { margin-left: auto; }
+  .pick .btn svg { width: 16px; height: 16px; }
+  .pick-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .pick-foot .mp4-toggle { margin: 0; padding: 0; border: 0; background: none; }
+  #view-home .period { margin: 0; }
+  #view-home .entries { margin-top: 0; }
+
+  .dock { position: sticky; top: 0; display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 72px); overflow-y: auto; padding-bottom: 4px; }
+  .dock-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 2px 0; }
+  .dock-head b { font-size: 13px; }
+  .dock-head span { color: var(--faint); font-size: 12px; }
+  #dock-list { display: flex; flex-direction: column; gap: 12px; }
+  .dock-empty { color: var(--faint); font-size: 12.5px; padding: 18px 12px; border-radius: 12px; border: 1.5px dashed var(--border); text-align: center; }
+  .dock-empty[hidden] { display: none; }
+  .dock-all { align-self: flex-start; }
+  .dcard { border-radius: 12px; background: var(--surface); padding: 8px; animation: card-in .38s var(--ease-out); }
+  .dframe { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; background: var(--surface-2); }
+  .dframe img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 8px; transition: filter .3s; }
+  .dph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); }
+  .ring { position: absolute; inset: -3px; width: calc(100% + 6px); height: calc(100% + 6px); overflow: visible; pointer-events: none; transition: opacity .3s; }
+  .ring rect { fill: none; stroke-width: 1.7; }
+  .ring .track { stroke: #ffffff1a; }
+  .ring .prog { stroke: var(--accent); stroke-linecap: round; transition: stroke-dasharray .5s var(--ease-out); }
+  .dcard:not(.running):not(.queued) .ring { opacity: 0; }
+  .dcard.queued .ring .prog { stroke: transparent; }
+  .dbadge { position: absolute; left: 8px; bottom: 8px; padding: 1px 7px; border-radius: 6px; background: #000000b3; font-size: 12px; font-weight: 600; }
+  .dbadge:empty { display: none; }
+  .dcard.done .dbadge { color: var(--ok); }
+  .dcard.error .dbadge { color: var(--err); }
+  .dcard.error .dframe img, .dcard.cancelled .dframe img { filter: grayscale(.7) brightness(.65); }
+  .dcard.just-done .dbadge { animation: pop .45s cubic-bezier(.3, 1.6, .5, 1); }
+  .dtitle { margin: 8px 4px 2px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dmeta { margin: 0 4px; color: var(--muted); font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .dcard.error .dmeta { color: #ffb3a6; }
+  .dact { display: flex; gap: 6px; margin: 8px 4px 2px; }
+  .dact:empty { display: none; }
+  .dcard.compact { display: grid; grid-template-columns: 76px minmax(0, 1fr); column-gap: 10px; align-items: start; padding: 6px; }
+  .dcard.compact .dframe { grid-row: 1 / span 3; border-radius: 6px; }
+  .dcard.compact .dframe img { border-radius: 6px; }
+  .dcard.compact .dph svg { width: 16px; height: 16px; }
+  .dcard.compact .ring, .dcard.compact .dbadge { display: none; }
+  .dcard.compact .dtitle { margin: 1px 0 1px; font-size: 12.5px; }
+  .dcard.compact .dmeta { margin: 0; -webkit-line-clamp: 2; }
+  .dcard.compact.done .dmeta { color: var(--ok); }
+  .dcard.compact .dact { margin: 6px 0 0; }
+  .dcard.compact .chip-btn { height: 24px; font-size: 12px; padding: 0 9px; }
+  @keyframes card-in { from { transform: translateY(10px) scale(.97); } to { transform: none; } }
+  @keyframes pop { 0% { transform: scale(.7); } 100% { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-card, .dcard, .dcard.just-done .dbadge, .view { animation: none; }
+    .ring .prog, .ring, .dframe img { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -286,29 +395,29 @@
     <div><b>YT Grab</b><small>без лімітів</small></div>
   </div>
   <div class="nav-group">Медіа</div>
-  <button class="nav active" data-view="home">
+  <button class="nav active" data-view="home" title="Завантажити">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
     Завантажити
   </button>
-  <button class="nav" data-view="queue">
+  <button class="nav" data-view="queue" title="Черга">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h7"/><path d="m16 15 3 3 3-3M19 11v7"/></svg>
     Черга <span class="badge num" id="badge-queue"></span>
   </button>
-  <button class="nav" data-view="downloads">
+  <button class="nav" data-view="downloads" title="Завантажене">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
     Завантажене <span class="badge num" id="badge-downloads"></span>
   </button>
   <div class="nav-group">Інструменти</div>
-  <button class="nav" data-view="convert">
+  <button class="nav" data-view="convert" title="Конвертер">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>
     Конвертер <span class="badge num" id="badge-convert"></span>
   </button>
-  <button class="nav" data-view="subs">
+  <button class="nav" data-view="subs" title="Субтитри">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M7 15h4M13 15h4M7 11h10"/></svg>
     Субтитри <span class="badge num" id="badge-subs"></span>
   </button>
   <div class="side-foot">
-    <button class="nav" data-view="settings">
+    <button class="nav" data-view="settings" title="Налаштування">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
       Налаштування
     </button>
@@ -319,17 +428,17 @@
 <main>
   <!-- home -->
   <section class="view active" id="view-home">
-    <div class="hero"><h1>Що <span>качаємо</span>?</h1><p class="lead">Відео, плейлист, цілий канал або пост з фото — у найкращій якості</p></div>
-    <div id="tools-alert"></div>
-    <form class="urlbar" id="url-form">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
-      <input id="url" type="text" placeholder="Встав посилання на відео, плейлист, канал або пост" autocomplete="off" autofocus>
-      <button class="chip-btn" type="button" id="paste-btn">Вставити</button>
-      <button class="btn primary" type="submit" id="get-btn">Отримати</button>
-    </form>
-    <div class="platforms" id="platforms"></div>
-    <div class="links">та ще понад тисяча сайтів · <a href="#" id="batch-link">кілька посилань одразу</a> · <a href="#" id="txt-link">посилання з .txt</a><input type="file" id="txt-input" accept=".txt,.csv,text/plain" multiple hidden></div>
-    <div class="batch" id="batch" hidden>
+    <div class="stage">
+      <div id="tools-alert"></div>
+      <form class="urlbar" id="url-form">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+        <input id="url" type="text" placeholder="Встав посилання на відео, плейлист, канал або пост" autocomplete="off" autofocus aria-label="Посилання">
+        <span class="url-pf" id="url-pf" hidden></span>
+        <button class="chip-btn" type="button" id="paste-btn">Вставити</button>
+        <button class="btn" type="submit" id="get-btn">Отримати</button>
+      </form>
+      <div class="links">YouTube, Instagram, TikTok, Threads і ще понад тисяча сайтів · <a href="#" id="batch-link">кілька посилань одразу</a> · <a href="#" id="txt-link">посилання з .txt</a><input type="file" id="txt-input" accept=".txt,.csv,text/plain" multiple hidden></div>
+      <div class="batch" id="batch" hidden>
       <textarea class="field-input" id="batch-urls" rows="6" placeholder="Кожне посилання з нового рядка: YouTube, Instagram, TikTok і будь-що ще. Фото-пости теж"></textarea>
       <div class="row">
         <select class="field-input" id="batch-quality">
@@ -341,13 +450,20 @@
       </div>
       <div class="batch-result" id="batch-result" hidden></div>
     </div>
-    <div id="result">
-      <div class="features">
-        <div class="feature"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><b>Плейлисти й канали</b><span>Повністю, а повторний запуск докачує лише нове</span></div>
-        <div class="feature"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg><b>Фото-пости</b><span>Каруселі Instagram і слайдшоу TikTok</span></div>
-        <div class="feature"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg><b>Перетягни сюди</b><span>Посилання з браузера або .txt зі списком</span></div>
+      <div id="result">
+        <div class="empty-stage"><div>
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m10 9 5 3-5 3z"/></svg>
+          <b>Тут з'явиться прев'ю</b>
+          <span>Встав посилання (⌘V) або перетягни його з браузера. Цілий список — файлом .txt.</span>
+        </div></div>
       </div>
     </div>
+    <section class="dock" aria-label="Черга">
+      <div class="dock-head"><b>Черга</b><span class="num" id="dock-sum"></span></div>
+      <div id="dock-list"></div>
+      <div class="dock-empty" id="dock-empty">Тут з'являтимуться завантаження, конвертації й субтитри</div>
+      <button class="chip-btn dock-all" type="button" data-goto="queue">Уся черга</button>
+    </section>
   </section>
 
   <!-- queue -->
@@ -588,12 +704,12 @@ async function loadStatus() {
   if (installBtn) installBtn.addEventListener("click", installComponents);
   $("#status-dot").classList.toggle("warn", missing.length > 0);
   $("#status-text").textContent = s.setup_running ? "Готую компоненти…" : missing.length ? "Бракує: " + missing.join(", ") : "Усе готово";
+  $(".status-line").title = $("#status-text").textContent;
   if (s.setup_running && !state.watchingSetup) {
     state.watchingSetup = true;
     loadJobs();
   }
   state.platforms = s.platforms || [];
-  $("#platforms").innerHTML = state.platforms.map((p) => `<span class="pf" data-pf="${p.key}">${esc(p.name)}</span>`).join("");
   highlightPlatform();
   const y = s.ytdlp || {};
   const vnum = (v) => (String(v || "").match(/\d+/g) || []).map(Number);
@@ -653,7 +769,8 @@ function detectPlatform(url) {
 }
 function highlightPlatform() {
   const p = detectPlatform($("#url").value);
-  document.querySelectorAll(".pf").forEach((el) => el.classList.toggle("on", !!p && el.dataset.pf === p.key));
+  $("#url-pf").hidden = !p;
+  $("#url-pf").textContent = p ? p.name : "";
 }
 $("#url").addEventListener("input", highlightPlatform);
 async function installComponents() {
@@ -678,7 +795,7 @@ $("#url-form").addEventListener("submit", async (ev) => {
   state.url = url;
   state.info = null;
   $("#get-btn").disabled = true;
-  $("#result").innerHTML = '<div class="spinner"></div>';
+  $("#result").innerHTML = '<div class="preview" aria-busy="true"><div class="hero-card skeleton"></div><div class="skel-line"></div></div>';
   try {
     state.info = await api("/api/info", { url });
     renderResult();
@@ -718,37 +835,87 @@ function renderResult() {
     $("#photos-go").addEventListener("click", () => downloadPhotos(info));
     return;
   }
-  let right;
-  if (info.kind === "video") {
-    const top = info.qualities[0];
-    const cards = [qCard("best", "Найкраща", top ? `${resName(top.height)}${top.size ? " · " + fmtSize(top.size) : ""}` : "", "best")]
-      .concat(info.qualities.map((q) => qCard(q.height, resName(q.height),
-        [q.height >= 1440 ? q.height + "p" : "", fmtSize(q.size), q.fps && q.fps > 30 ? Math.round(q.fps) + "fps" : ""].filter(Boolean).join(" · "))))
-      .concat([qCard("audio", "Аудіо", "MP3 320 kbps", "audio")]);
-    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info)}<div class="qgrid">${cards.join("")}</div>${mp4Toggle()}`;
+  // Preview first: a big frame of the video, one quality switch, one button.
+  const isList = info.kind !== "video";
+  let options;
+  if (!isList) {
+    const heights = (info.qualities || []).filter((q) => q.height >= 240).slice(0, 5);
+    options = heights.map((q, i) => ({
+      q: i === 0 ? "best" : q.height, label: resName(q.height),
+      size: [q.height >= 1440 ? q.height + "p" : "", fmtSize(q.size), q.fps && q.fps > 30 ? Math.round(q.fps) + " fps" : ""].filter(Boolean).join(" · "),
+    }));
+    if (!options.length) options.push({ q: "best", label: "Найкраща", size: "" });
   } else {
+    options = [{ q: "best", label: "Найкраща" }, { q: 2160, label: "До 4K" }, { q: 1440, label: "До 2K" },
+      { q: 1080, label: "До 1080p" }, { q: 720, label: "До 720p" }];
+  }
+  options.push({ q: "audio", label: "Звук", size: ["MP3 320 kbps", fmtSize(info.audio_size)].filter(Boolean).join(" · ") });
+  state.choice = String(options[0].q);
+  const sizeText = () => {
+    const o = options.find((x) => String(x.q) === state.choice) || options[0];
+    if (isList && o.q === "best") return state.period && state.period !== "all" ? "лише за обраний період" : playlistTotal(info);
+    return o.size || (isList ? playlistTotal(info) : "");
+  };
+  const sub = [info.platform, info.uploader, isList ? playlistTotal(info) : ""].filter(Boolean).map(esc).join(" · ");
+  const thumb = info.thumbnail ? imgTag(info.thumbnail, "") : "";
+  const dur = info.duration ? `<span class="hero-dur num">${fmtDuration(info.duration)}</span>` : "";
+  const seg = options.map((o) => `<button type="button" role="radio" data-q="${o.q}" aria-checked="${String(o.q) === state.choice}" tabindex="${String(o.q) === state.choice ? 0 : -1}" class="${String(o.q) === state.choice ? "on" : ""}">${esc(o.label)}</button>`).join("");
+  let list = "";
+  if (isList) {
     const entries = (info.entries || []).map((e, i) =>
       `<div class="entry"><span class="n num">${i + 1}</span><span>${esc(e.title || "—")}</span><span class="d num">${fmtDuration(e.duration)}</span></div>`).join("");
     const more = info.more ? `<div class="entry"><span class="n"></span><span class="muted">…і решта каналу</span></div>` : info.count > (info.entries || []).length ? `<div class="entry"><span class="n"></span><span class="muted">…і ще ${info.count - info.entries.length}</span></div>` : "";
-    const cards = [qCard("best", "Усе в найкращій", playlistTotal(info), "best"), qCard(2160, "До 4K"), qCard(1440, "До 2K"),
-      qCard(1080, "До 1080p"), qCard(720, "До 720p"), qCard("audio", "Лише аудіо", "MP3 320 kbps", "audio")];
-    if (info.can_photos) cards.push('<button class="q photos" id="photos-all"><b>Усе з поста, разом з фото</b><span>через gallery-dl</span></button>');
-    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info, playlistTotal(info))}${periodHtml("all")}<div class="qgrid">${cards.join("")}</div>${mp4Toggle()}<div class="entries">${entries}${more}</div>`;
+    list = `<div class="entries">${entries}${more}</div>`;
   }
-  // A dead preview keeps the empty frame instead of a broken-image icon.
-  const thumb = info.thumbnail ? `<img class="thumb" src="${esc(info.thumbnail)}" alt="" referrerpolicy="no-referrer" onerror="this.removeAttribute('src')">` : `<div class="thumb"></div>`;
-  const dur = info.duration ? `<span class="duration num">${fmtDuration(info.duration)}</span>` : "";
-  $("#result").innerHTML = `<div class="result"><div class="thumb-wrap">${thumb}${dur}</div><div>${right}</div></div>`;
-  document.querySelectorAll("#result .q[data-q]").forEach((b) => b.addEventListener("click", () => download(b.dataset.q)));
-  bindMp4Toggle($("#result"));
-  bindPeriod($("#result"), () => {
-    const sub = $("#result .q.best span");
-    if (sub) sub.textContent = state.period === "all" ? playlistTotal(info) : "лише за обраний період";
+  $("#result").innerHTML = `<div class="preview">
+    <div class="hero-card">${thumb}<div class="hero-cap"><div><div class="hero-title selectable">${esc(info.title)}</div><div class="hero-sub">${sub}</div></div>${dur}</div></div>
+    ${isList ? periodHtml("all") : ""}
+    <div class="pick num"><div class="seg seg-q" role="radiogroup" aria-label="Якість">${seg}</div><span class="pick-size" id="pick-size"></span>
+      <button class="btn primary big" id="dl-go">${ICONS.download}${isList ? "Завантажити все" : "Завантажити"}</button></div>
+    <div class="pick-foot">${mp4Toggle()}${info.can_photos ? '<button class="chip-btn" id="photos-all">Усе з поста, разом з фото</button>' : ""}</div>
+    ${list}</div>`;
+  const refresh = () => { $("#pick-size").textContent = sizeText(); };
+  const segBox = $("#result .seg-q");
+  const choose = (b) => {
+    state.choice = b.dataset.q;
+    segBox.querySelectorAll("button").forEach((x) => {
+      const on = x === b;
+      x.classList.toggle("on", on);
+      x.setAttribute("aria-checked", on);
+      x.tabIndex = on ? 0 : -1;
+    });
+    refresh();
+  };
+  segBox.addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (b) choose(b); });
+  segBox.addEventListener("keydown", (ev) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(ev.key)) return;
+    const all = [...segBox.querySelectorAll("button")];
+    const i = all.findIndex((x) => x.classList.contains("on"));
+    const next = all[(i + (ev.key === "ArrowRight" ? 1 : all.length - 1)) % all.length];
+    choose(next);
+    next.focus();
+    ev.preventDefault();
   });
-  if ($("#photos-all")) $("#photos-all").addEventListener("click", () => downloadPhotos({ title: info.title, uploader: info.uploader, count: 0 }));
+  $("#dl-go").addEventListener("click", () => download(state.choice));
+  bindMp4Toggle($("#result"));
+  bindPeriod($("#result"), refresh);
+  refresh();
+  if ($("#photos-all")) $("#photos-all").addEventListener("click", () => downloadPhotos({ title: info.title, uploader: info.uploader, count: 0, thumbnail: info.thumbnail }));
+}
+// Social CDNs often refuse hot-linked previews: try directly, then through our relay, then give up quietly.
+function imgTag(url, cls) {
+  return `<img class="${cls}" src="${esc(url)}" data-src="${esc(url)}" alt="" referrerpolicy="no-referrer" onerror="thumbFallback(this)">`;
+}
+function thumbFallback(img) {
+  if (!img.dataset.relayed) {
+    img.dataset.relayed = "1";
+    img.src = "/api/thumb?u=" + encodeURIComponent(img.dataset.src);
+  } else {
+    img.remove();
+  }
 }
 async function downloadPhotos(info) {
-  try { await api("/api/photos", { url: state.url, info }); toast("Фото додано в чергу"); loadJobs(); }
+  try { await api("/api/photos", { url: state.url, info, thumbnail: info.thumbnail || (info.previews || [])[0] || "" }); toast("Фото додано в чергу"); loadJobs(); }
   catch (e) { toast(e.message); }
 }
 function mp4Toggle() {
@@ -768,7 +935,7 @@ async function download(quality) {
   const dates = state.info && state.info.kind === "playlist" ? periodDates() : {};
   if (!dates) return;
   try {
-    await api("/api/download", { url: state.url, title: state.info && state.info.title, kind: state.info && state.info.kind, quality, mp4: wantMp4(), ...dates });
+    await api("/api/download", { url: state.url, title: state.info && state.info.title, kind: state.info && state.info.kind, thumbnail: (state.info && state.info.thumbnail) || "", quality, mp4: wantMp4(), ...dates });
     toast(`Додано в чергу: ${qualityLabel(quality)}${wantMp4() && quality !== "audio" ? " → MP4" : ""}${dates.date_from || dates.date_to ? " · " + periodText(dates) : ""}`);
     loadJobs();
   } catch (e) { toast(e.message); }
@@ -978,7 +1145,93 @@ async function loadJobs() {
   }
   if (state.lastActive && !active) loadFiles();
   state.lastActive = active;
+  renderDock(state.jobs);
 }
+
+// Cards are updated in place (not re-rendered), so the progress frame and state changes can animate.
+const dockCards = new Map();
+function dockMeta(j) {
+  if (j.converting) return "Конвертую в MP4";
+  if (j.status === "queued") return "Чекає своєї черги";
+  if (j.status === "running") {
+    const verb = { convert: "Конвертую", transcribe: "Розпізнаю", setup: "Встановлюю" }[j.kind] || "Качаю";
+    return [verb, j.item ? "відео " + j.item : "", j.speed, j.eta ? "ще " + j.eta : ""].filter(Boolean).join(" · ");
+  }
+  if (j.status === "done") {
+    if (j.error) return j.error;
+    return ["Готово", j.mp4 && j.kind !== "convert" ? "MP4" : "", j.files.length > 1 ? "файлів: " + j.files.length : ""].filter(Boolean).join(" · ");
+  }
+  if (j.status === "error") return j.error || "Помилка";
+  return j.note || "Скасовано";
+}
+function makeDockCard(j) {
+  const el = document.createElement("div");
+  el.className = "dcard";
+  el.dataset.id = j.id;
+  el.innerHTML = `<div class="dframe">${j.thumbnail ? imgTag(j.thumbnail, "") : `<div class="dph">${ICONS[j.kind] || ICONS.download}</div>`}
+    <svg class="ring" viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true"><rect class="track" x="1" y="1" width="158" height="88" rx="6"/><rect class="prog" x="1" y="1" width="158" height="88" rx="6"/></svg>
+    <span class="dbadge num"></span></div><div class="dtitle"></div><div class="dmeta num"></div><div class="dact"></div>`;
+  return el;
+}
+function updateDockCard(el, j, compact) {
+  const status = j.converting ? "running" : j.status;
+  if (el.dataset.status && el.dataset.status !== "done" && status === "done") el.classList.add("just-done");
+  el.dataset.status = status;
+  el.classList.remove("queued", "running", "done", "error", "cancelled");
+  el.classList.add(status);
+  el.classList.toggle("compact", !!compact);
+  const prog = el.querySelector(".prog");
+  if (!prog.dataset.len) prog.dataset.len = prog.getTotalLength();
+  const len = +prog.dataset.len;
+  const pct = j.converting ? 100 : Math.max(0, Math.min(100, j.percent || 0));
+  prog.style.strokeDasharray = `${(len * pct) / 100} ${len}`;
+  el.querySelector(".dbadge").textContent = status === "queued" ? "В черзі" : status === "running" ? (j.converting ? "MP4" : Math.round(pct) + "%")
+    : status === "done" ? "Готово" : status === "error" ? "Помилка" : "";
+  const title = el.querySelector(".dtitle");
+  if (title.textContent !== j.title) { title.textContent = j.title; title.title = j.title; }
+  const meta = dockMeta(j);
+  if (el.querySelector(".dmeta").textContent !== meta) el.querySelector(".dmeta").textContent = meta;
+  const busy = j.status === "running" || j.status === "queued";
+  const acts = busy ? '<button class="chip-btn" type="button" data-dact="cancel">Скасувати</button>'
+    : j.retry ? '<button class="chip-btn accent" type="button" data-dact="retry">Повторити</button>'
+    : status === "done" && j.files.length ? '<button class="chip-btn" type="button" data-dact="reveal">Показати</button>' : "";
+  const box = el.querySelector(".dact");
+  if (box.dataset.sig !== acts) { box.innerHTML = acts; box.dataset.sig = acts; }
+}
+function renderDock(list) {
+  const box = $("#dock-list");
+  const live = list.filter((j) => j.status === "running" || j.status === "queued" || j.converting);
+  const items = [...live, ...list.filter((j) => !live.includes(j))].slice(0, 6);
+  const done = list.filter((j) => j.status === "done" && !j.converting).length;
+  $("#dock-sum").textContent = [live.length ? `${live.length} в роботі` : "", done ? `${done} готово` : ""].filter(Boolean).join(" · ");
+  const keep = new Set(items.map((j) => j.id));
+  for (const [id, el] of dockCards) if (!keep.has(id)) { el.remove(); dockCards.delete(id); }
+  // Running jobs and the newest finished one with a preview get the big frame; the rest are compact rows.
+  let bigDone = false;
+  items.forEach((j, i) => {
+    let el = dockCards.get(j.id);
+    if (!el) { el = makeDockCard(j); dockCards.set(j.id, el); }
+    if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+    const busy = live.includes(j);
+    const big = busy || (!bigDone && j.status === "done" && !!j.thumbnail);
+    if (!busy && big) bigDone = true;
+    updateDockCard(el, j, !big);
+  });
+  $("#dock-empty").hidden = items.length > 0;
+}
+$("#dock-list").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-dact]");
+  if (!b) return;
+  const j = state.jobs.find((x) => x.id === b.closest(".dcard").dataset.id);
+  if (!j) return;
+  try {
+    if (b.dataset.dact === "cancel") await api("/api/cancel", { id: j.id });
+    if (b.dataset.dact === "retry") { await api("/api/retry", { id: j.id }); toast("Повторюю"); }
+    if (b.dataset.dact === "reveal") return openFile(j.files[j.files.length - 1], true);
+    loadJobs();
+  } catch (e) { toast(e.message); }
+});
+bindGoto($(".dock"));
 $("#clear-btn").addEventListener("click", async () => { await api("/api/clear", {}); loadJobs(); });
 
 // ---------- downloads ----------
@@ -1341,8 +1594,13 @@ $("#txt-input").addEventListener("change", async () => {
 loadStatus().catch((e) => toast(e.message));
 loadJobs();
 loadFiles();
+// Every second while something runs or the queue is open; otherwise every 5 s, so jobs that start
+// on their own (yt-dlp updates, retries after an update) still show up.
+let pollTick = 0;
 setInterval(() => {
-  if (state.jobs.some((j) => j.status === "running" || j.status === "queued") || $("#view-queue").classList.contains("active")) loadJobs();
+  pollTick++;
+  if (state.jobs.some((j) => j.status === "running" || j.status === "queued" || j.converting)
+      || $("#view-queue").classList.contains("active") || pollTick % 5 === 0) loadJobs();
 }, 1000);
 </script>
 </body>

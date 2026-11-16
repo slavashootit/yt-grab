@@ -462,6 +462,12 @@ def build_download_cmd(url: str, quality: str, use_archive: bool, cfg: dict, fil
 
 # ---------- jobs ----------
 
+def clean_thumbnail(value) -> str:
+    """A preview URL from the page or the saved queue: only plain https links are kept."""
+    url = str(value or "").strip()
+    return url if url.startswith("https://") and len(url) < 2000 else ""
+
+
 class Job:
     def __init__(self, url: str, title: str, quality: str, use_archive: bool, kind: str = "download"):
         self.id = uuid.uuid4().hex[:10]
@@ -489,6 +495,7 @@ class Job:
         self.date_from = ""
         self.date_to = ""
         self.interrupted = False  # stopped because YT Grab was closed, not by the user
+        self.thumbnail = ""  # preview image for the queue card
 
     def to_disk(self) -> dict:
         """What is needed to show the job after a restart and to start it again."""
@@ -499,6 +506,7 @@ class Job:
             "percent": self.percent if finished else 0.0, "current": self.current if finished else "",
             "error": self.error, "note": self.note, "files": list(self.files), "created": self.created,
             "date_from": self.date_from, "date_to": self.date_to, "interrupted": self.interrupted,
+            "thumbnail": self.thumbnail,
         }
         for key in ("preset", "res", "engine", "language", "want_txt", "want_summary", "platform"):
             if hasattr(self, key):
@@ -519,6 +527,7 @@ class Job:
         job.files = [str(f) for f in data.get("files") or []]
         job.created = float(data.get("created") or job.created)
         job.date_from, job.date_to = str(data.get("date_from") or ""), str(data.get("date_to") or "")
+        job.thumbnail = clean_thumbnail(data.get("thumbnail"))
         for key in ("preset", "res", "engine", "language", "want_txt", "want_summary", "platform", "info"):
             if key in data:
                 setattr(job, key, data[key])
@@ -541,7 +550,7 @@ class Job:
 
     def to_json(self) -> dict:
         return {
-            "retry": self.can_retry(),
+            "retry": self.can_retry(), "thumbnail": self.thumbnail,
             "id": self.id, "kind": self.kind, "note": self.note, "url": self.url, "mp4": self.mp4, "title": self.title, "quality": self.quality,
             "status": self.status, "percent": self.percent, "speed": self.speed,
             "eta": self.eta, "item": self.item, "current": self.current, "error": self.error,
@@ -1455,6 +1464,7 @@ def retry_job(job_id: str) -> Job:
     else:
         new = start_transcription(job.url, job.engine, job.language, bool(job.want_txt),
                                   bool(getattr(job, "want_summary", False)))
+    new.thumbnail = job.thumbnail
     with jobs_lock:
         jobs.pop(job_id, None)
     return new
@@ -1722,6 +1732,7 @@ class Handler(BaseHTTPRequestHandler):
                 job = start_job(normalize_url(str(data.get("url", ""))), str(data.get("title") or ""),
                                 str(data.get("quality", "best")), use_archive=data.get("kind") != "video", mp4=mp4,
                                 date_from=date_from, date_to=date_to)
+                job.thumbnail = clean_thumbnail(data.get("thumbnail"))
                 self._send_json(job.to_json())
             elif path == "/api/profile":
                 date_from, date_to = parse_dates(data)
@@ -1757,7 +1768,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(start_setup().to_json())
             elif path == "/api/photos":
                 info = data.get("info") if isinstance(data.get("info"), dict) else {}
-                self._send_json(start_photos(normalize_url(str(data.get("url", ""))), info).to_json())
+                job = start_photos(normalize_url(str(data.get("url", ""))), info)
+                job.thumbnail = clean_thumbnail(data.get("thumbnail"))
+                self._send_json(job.to_json())
             elif path == "/api/retry":
                 job_id = str(data.get("id", ""))
                 job = retry_after_update(job_id) if data.get("update") else retry_job(job_id)
