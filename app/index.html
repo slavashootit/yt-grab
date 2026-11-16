@@ -450,6 +450,7 @@
             <option value="opera">Opera</option><option value="vivaldi">Vivaldi</option><option value="chromium">Chromium</option>
           </select>
           <p>Береться вхід з обраного браузера. Chrome спитає доступ до Keychain — натисни «Дозволити».</p>
+          <div id="cookies-access"></div>
         </div>
       </div>
       <div class="setting">
@@ -602,6 +603,7 @@ async function loadStatus() {
   $("#out-dir").value = s.settings.out_dir;
   $("#out-dir-label").textContent = s.settings.out_dir;
   $("#cookies").value = s.settings.cookies_browser || "";
+  renderCookiesAccess(s.settings.cookies_access);
   $("#mp4-codec").value = s.settings.mp4_codec || "auto";
   $("#keep-original").checked = !!s.settings.keep_original;
   document.querySelectorAll("[data-mp4]").forEach((box) => { box.checked = !!s.settings.auto_mp4; });
@@ -617,6 +619,23 @@ $("#save-settings").addEventListener("click", async () => {
     toast("Збережено");
   } catch (e) { toast(e.message); }
 });
+// Without Full Disk Access macOS hides the browser's cookie file from YT Grab, so logins silently do nothing.
+function accessHtml() {
+  return `<div class="alert">YT Grab не бачить cookies браузера — Instagram-профілі та інше «лише після входу» не качатимуться.<br>
+    Відкрий доступ, увімкни <b>YT Grab</b> у списку «Повний доступ до диска» і перезапусти YT Grab.<br>
+    <button class="btn primary" data-open-privacy>Дати доступ</button></div>`;
+}
+function bindPrivacy(root) {
+  root.querySelectorAll("[data-open-privacy]").forEach((b) => b.addEventListener("click", async () => {
+    try { await api("/api/open-privacy", {}); } catch (e) { toast(e.message); }
+  }));
+}
+function renderCookiesAccess(access) {
+  const box = $("#cookies-access");
+  box.innerHTML = access === false ? accessHtml()
+    : access ? '<p class="muted small">✓ Доступ до cookies браузера є</p>' : "";
+  bindPrivacy(box);
+}
 function bindGoto(root) {
   root.querySelectorAll("[data-goto]").forEach((b) => b.addEventListener("click", () => show(b.dataset.goto)));
 }
@@ -674,6 +693,11 @@ function qCard(quality, title, sub, cls = "") {
 function metaLine(info, extra) {
   return `<div class="meta-sub">${info.platform ? `<span class="pf-badge">${esc(info.platform)}</span>` : ""}<span>${esc(info.uploader || "")}</span>${extra ? `<span>· ${esc(extra)}</span>` : ""}</div>`;
 }
+// TikTok profiles are previewed by their first page only, so the total is a lower bound.
+function playlistTotal(info) {
+  return info.more ? `${info.count}+ відео` : `${info.count} відео`;
+}
+
 function renderResult() {
   const info = state.info;
   if (!info) return;
@@ -702,11 +726,11 @@ function renderResult() {
   } else {
     const entries = (info.entries || []).map((e, i) =>
       `<div class="entry"><span class="n num">${i + 1}</span><span>${esc(e.title || "—")}</span><span class="d num">${fmtDuration(e.duration)}</span></div>`).join("");
-    const more = info.count > (info.entries || []).length ? `<div class="entry"><span class="n"></span><span class="muted">…і ще ${info.count - info.entries.length}</span></div>` : "";
-    const cards = [qCard("best", "Усе в найкращій", `${info.count} відео`, "best"), qCard(2160, "До 4K"), qCard(1440, "До 2K"),
+    const more = info.more ? `<div class="entry"><span class="n"></span><span class="muted">…і решта каналу</span></div>` : info.count > (info.entries || []).length ? `<div class="entry"><span class="n"></span><span class="muted">…і ще ${info.count - info.entries.length}</span></div>` : "";
+    const cards = [qCard("best", "Усе в найкращій", playlistTotal(info), "best"), qCard(2160, "До 4K"), qCard(1440, "До 2K"),
       qCard(1080, "До 1080p"), qCard(720, "До 720p"), qCard("audio", "Лише аудіо", "MP3 320 kbps", "audio")];
     if (info.can_photos) cards.push('<button class="q photos" id="photos-all"><b>Усе з поста, разом з фото</b><span>через gallery-dl</span></button>');
-    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info, info.count + " відео")}${periodHtml("all")}<div class="qgrid">${cards.join("")}</div>${mp4Toggle()}<div class="entries">${entries}${more}</div>`;
+    right = `<div class="meta-title selectable">${esc(info.title)}</div>${metaLine(info, playlistTotal(info))}${periodHtml("all")}<div class="qgrid">${cards.join("")}</div>${mp4Toggle()}<div class="entries">${entries}${more}</div>`;
   }
   // A dead preview keeps the empty frame instead of a broken-image icon.
   const thumb = info.thumbnail ? `<img class="thumb" src="${esc(info.thumbnail)}" alt="" referrerpolicy="no-referrer" onerror="this.removeAttribute('src')">` : `<div class="thumb"></div>`;
@@ -716,7 +740,7 @@ function renderResult() {
   bindMp4Toggle($("#result"));
   bindPeriod($("#result"), () => {
     const sub = $("#result .q.best span");
-    if (sub) sub.textContent = state.period === "all" ? `${info.count} відео` : "лише за обраний період";
+    if (sub) sub.textContent = state.period === "all" ? playlistTotal(info) : "лише за обраний період";
   });
   if ($("#photos-all")) $("#photos-all").addEventListener("click", () => downloadPhotos({ title: info.title, uploader: info.uploader, count: 0 }));
 }
@@ -800,7 +824,7 @@ function renderProfile(info) {
     ? `<div class="alert">Для профілів потрібен gallery-dl. Відкрий Налаштування й натисни «Оновити компоненти».<br><button class="btn primary" data-goto="settings">Відкрити налаштування</button></div>`
     : !info.has_cookies
       ? `<div class="alert info">Instagram показує профілі лише після входу. У Налаштуваннях обери в «Cookies з браузера» браузер, де ти залогінений в Instagram.<br><button class="btn primary" data-goto="settings">Відкрити налаштування</button></div>`
-      : "";
+      : info.cookies_access === false ? accessHtml() : "";
   const tabs = [["reels", "Рілси"], ["posts", "Усі пости"]]
     .map(([k, l]) => `<button type="button" data-tab="${k}" class="${k === state.profileTab ? "on" : ""}">${l}</button>`).join("");
   $("#result").innerHTML = `<div class="result">
@@ -829,6 +853,7 @@ function renderProfile(info) {
   bindPeriod($("#result"), update);
   update();
   bindGoto($("#result"));
+  bindPrivacy($("#result"));
   $("#profile-go").addEventListener("click", async () => {
     const dates = periodDates();
     if (!dates) return;

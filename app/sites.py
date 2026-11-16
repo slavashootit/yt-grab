@@ -35,6 +35,9 @@ def detect(url: str) -> tuple[str, str] | None:
 
 # TikTok slideshows are photo posts that yt-dlp does not support at all.
 PHOTO_POST = re.compile(r"tiktok\.com/@[^/]+/photo/", re.I)
+# A whole TikTok profile. With browser cookies TikTok reports it as private and yt-dlp fails with
+# "Unable to extract secondary user ID", while the same page reads fine without them.
+TIKTOK_PROFILE = re.compile(r"tiktok\.com/@[^/?#]+/?(?:[?#].*)?$", re.I)
 
 # Share/tracking parameters: dropping them lets the same post pasted twice be recognised as one.
 _TRACKING = re.compile(r"^(utm_\w+|igsh|igshid|si|fbclid|gclid|feature|is_from_webapp|sender_device|"

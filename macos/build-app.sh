@@ -51,6 +51,9 @@ fi
 
 echo "→ Копіюю рушій…"
 cp "$SRC"/*.py "$SRC/index.html" "$APP/Contents/Resources/ytgrab/"
+# Our own yt-dlp extractors (Threads); app.py points --plugin-dirs at this folder.
+cp -R "$SRC/ytdlp_plugins" "$APP/Contents/Resources/ytgrab/"
+find "$APP/Contents/Resources/ytgrab" -name "__pycache__" -prune -exec rm -rf {} +
 
 echo "→ Роблю іконку…"
 ICONSET="$BUILD/AppIcon.iconset"
@@ -62,9 +65,15 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 
-echo "→ Підписую (ad-hoc)…"
-codesign --force --sign - "$APP/Contents/MacOS/uv"
-codesign --force --sign - "$APP"
+# A stable local certificate keeps macOS permissions (Full Disk Access for browser cookies) across
+# rebuilds; an ad-hoc signature changes every build and resets them. CI has no such certificate.
+SIGN_ID="${YTGRAB_SIGN_ID:-}"
+if [ -z "$SIGN_ID" ] && security find-identity -v -p codesigning 2>/dev/null | grep -q '"Kadr Dev"'; then
+  SIGN_ID="Kadr Dev"
+fi
+echo "→ Підписую (${SIGN_ID:-ad-hoc})…"
+codesign --force --sign "${SIGN_ID:--}" "$APP/Contents/MacOS/uv"
+codesign --force --sign "${SIGN_ID:--}" "$APP"
 
 if [ "$INSTALL" = 0 ]; then
   echo "Готово: $APP"

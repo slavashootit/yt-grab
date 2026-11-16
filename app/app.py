@@ -43,6 +43,8 @@ VENV_DIR = CONFIG_DIR / "venv"
 BIN_DIR = CONFIG_DIR / "bin"
 YTDLP_PACKAGE = "yt-dlp[default,curl-cffi]"
 COMPONENTS = APP_DIR / "components.py"
+# Our own yt-dlp extractors for sites yt-dlp lacks (Threads).
+PLUGIN_ARGS = ["--plugin-dirs", str(APP_DIR / "ytdlp_plugins")]
 # Tools YT Grab installs itself (no Homebrew needed) win over system copies.
 os.environ["PATH"] = os.pathsep.join([str(BIN_DIR), str(VENV_DIR / "bin"), os.environ.get("PATH", "")])
 PROGRESS_PREFIX = "[ytgrab]"
@@ -138,7 +140,13 @@ def public_settings(data: dict | None = None) -> dict:
     # The Groq key never leaves the server; the UI only learns whether one is stored.
     data = dict(data or load_settings())
     data["has_groq_key"] = bool(data.pop("groq_api_key", ""))
+    browser = data.get("cookies_browser") or ""
+    data["cookies_access"] = cookies_readable(browser) if browser else None
     return data
+
+
+# System Settings → Privacy & Security → Full Disk Access: lets YT Grab read the browser's cookies.
+FULL_DISK_PANE = "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
 
 
 # ---------- yt-dlp helpers ----------
@@ -233,8 +241,59 @@ def date_filter_args(url: str, date_from: str, date_to: str) -> list[str]:
     return args
 
 
-def cookie_args(cfg: dict) -> list[str]:
-    return ["--cookies-from-browser", cfg["cookies_browser"]] if cfg.get("cookies_browser") else []
+VIMEO_PAGE = re.compile(r"^https?://(?:www\.)?vimeo\.com/(\d+)(?:/([0-9a-f]{6,}))?/?(?:[?#].*)?$")
+
+
+# TikTok profile URL -> secUid seen when the profile was read. TikTok hides the secUid from about one
+# request in five, so downloads go by "tiktokuser:<secUid>" instead of reading the profile page again.
+TIKTOK_SEC_UIDS: dict[str, str] = {}
+TIKTOK_PREVIEW = 30
+
+
+def url_args(url: str) -> list[str]:
+    """Final URL arguments for yt-dlp. vimeo.com pages now demand a login ("web client only works
+    when logged-in"), while the embed player still serves the same video, so single videos go there."""
+    if url in TIKTOK_SEC_UIDS:
+        return ["--", f"tiktokuser:{TIKTOK_SEC_UIDS[url]}"]
+    m = VIMEO_PAGE.match(url)
+    if m:
+        player = f"https://player.vimeo.com/video/{m.group(1)}" + (f"?h={m.group(2)}" if m.group(2) else "")
+        return ["--referer", "https://vimeo.com/", "--", player]
+    return ["--", url]
+
+
+COOKIE_DIRS = {
+    "chrome": "Google/Chrome", "brave": "BraveSoftware/Brave-Browser",
+    "edge": "Microsoft Edge", "chromium": "Chromium", "vivaldi": "Vivaldi",
+}
+
+
+def cookies_readable(browser: str) -> bool:
+    """macOS may hide another app's data from YT Grab (privacy protection) even though the file
+    exists; yt-dlp then fails every request with "could not find ... cookies database"."""
+    sub = COOKIE_DIRS.get(browser.split(":")[0].lower())
+    if not sub:
+        return True
+    root = Path.home() / "Library/Application Support" / sub
+    try:
+        for d in [root, *[root / n for n in os.listdir(root)]]:
+            f = d / "Cookies"
+            if f.is_file():
+                with open(f, "rb"):
+                    return True
+    except OSError:
+        pass
+    return False
+
+
+def cookie_args(cfg: dict, url: str = "") -> list[str]:
+    browser = cfg.get("cookies_browser")
+    if not browser or sites.TIKTOK_PROFILE.search(url):
+        return []
+    if not cookies_readable(browser):
+        print(f"cookies: no access to {browser} data — downloading without cookies", flush=True)
+        return []
+    return ["--cookies-from-browser", browser]
 
 
 def best_thumbnail(info: dict) -> str | None:
@@ -314,15 +373,23 @@ def fetch_info(url: str) -> dict:
         return {"kind": "profile", "platform": "Instagram", "uploader": profile[0], "title": "@" + profile[0],
                 "tab": profile[1], "max_posts": photos.PROFILE_MAX_POSTS,
                 "has_cookies": bool(cfg.get("cookies_browser")),
+                "cookies_access": cookies_readable(cfg.get("cookies_browser") or ""),
                 "has_gallery": photos.gallery_bin(VENV_DIR) is not None}
     if sites.PHOTO_POST.search(url):
         result = fetch_photos(url, cfg)
         if result:
             result["platform"] = platform_name
             return result
-    cmd = [ytdlp_bin(), "-J", "--flat-playlist", "--no-warnings", *cookie_args(cfg), "--", url]
+    # A whole TikTok profile pages in 30 videos at a time (~40 s for 800 videos); the preview needs only the first page.
+    preview = ["--playlist-end", str(TIKTOK_PREVIEW)] if sites.TIKTOK_PROFILE.search(url) else []
+    cmd = [ytdlp_bin(), *PLUGIN_ARGS, "-J", "--flat-playlist", "--no-warnings", *preview, *cookie_args(cfg, url),
+           *url_args(url)]
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        for _ in range(5):
+            if proc.returncode == 0 or "secondary user ID" not in proc.stderr:
+                break
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired:
         raise ValueError("Сайт надто довго не відповідає, спробуй ще раз")
     if proc.returncode != 0:
@@ -338,7 +405,11 @@ def fetch_info(url: str) -> dict:
         raise ValueError(sites.friendly_error(error, url, cfg.get("cookies_browser", ""))
                          or "yt-dlp не зміг прочитати посилання")
     info = json.loads(proc.stdout)
+    if sites.TIKTOK_PROFILE.search(url) and str(info.get("id", "")).startswith("MS4w"):
+        TIKTOK_SEC_UIDS[url] = info["id"]
     result = describe_playlist(info) if info.get("_type") in ("playlist", "multi_video") else describe_video(info)
+    if preview and result["kind"] == "playlist":
+        result["more"] = result["count"] >= TIKTOK_PREVIEW
     result["platform"] = platform_name or info.get("extractor_key")
     # Instagram carousels can mix photos and videos; yt-dlp sees only the videos.
     result["can_photos"] = (platform_name == "Instagram" and result["kind"] == "playlist"
@@ -356,12 +427,12 @@ def build_download_cmd(url: str, quality: str, use_archive: bool, cfg: dict, fil
                        date_from: str = "", date_to: str = "") -> list[str]:
     out_dir = cfg["out_dir"]
     cmd = [
-        ytdlp_bin(), "--newline", "--no-colors", "--ignore-errors", "--no-overwrites",
+        ytdlp_bin(), *PLUGIN_ARGS, "--newline", "--no-colors", "--ignore-errors", "--no-overwrites",
         "--embed-metadata", "--embed-chapters", "--concurrent-fragments", "4",
         "--paths", out_dir, "--output", sites.output_template(url),
         "--progress-template", PROGRESS_TEMPLATE,
         "--print-to-file", "after_move:filepath", files_log,
-        *cookie_args(cfg),
+        *cookie_args(cfg, url),
         *date_filter_args(url, date_from, date_to),
     ]
     if use_archive:
@@ -379,7 +450,7 @@ def build_download_cmd(url: str, quality: str, use_archive: bool, cfg: dict, fil
             height = int(quality)
             cmd += ["--format", f"bv*[height<={height}]+ba/b[height<={height}]/bv*+ba/b"]
         cmd += ["--merge-output-format", "mkv"]
-    return cmd + ["--", url]
+    return cmd + url_args(url)
 
 
 # ---------- jobs ----------
@@ -906,8 +977,13 @@ def run_profile(job: Job) -> None:
                     queue_mp4(job, cfg)
             else:
                 job.status = "error"
-                job.error = (sites.friendly_error(last_error_line("\n".join(tail)), job.url, cfg.get("cookies_browser", ""))
-                             or "gallery-dl нічого не скачав")
+                browser = cfg.get("cookies_browser", "")
+                if browser and not cookies_readable(browser):
+                    job.error = ("Instagram пускає до профілю лише після входу, а YT Grab не бачить cookies браузера. "
+                                 "Налаштування → «Дати доступ», потім перезапусти YT Grab")
+                else:
+                    job.error = (sites.friendly_error(last_error_line("\n".join(tail)), job.url, browser)
+                                 or "gallery-dl нічого не скачав")
         except Exception as exc:  # surface any launcher failure in the UI
             job.status, job.error = "error", str(exc)
         finally:
@@ -1492,6 +1568,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/choose":
                 picked = choose_files(str(data.get("prompt") or "Обери файли"))
                 self._send_json({"paths": expand_media([Path(p) for p in picked])})
+            elif path == "/api/open-privacy":
+                subprocess.Popen(["open", FULL_DISK_PANE])
+                self._send_json({"ok": True})
             elif path == "/api/open":
                 open_path(str(data.get("path", "")), bool(data.get("reveal")))
                 self._send_json({"ok": True})
