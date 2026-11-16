@@ -596,7 +596,10 @@ async function loadStatus() {
   $("#platforms").innerHTML = state.platforms.map((p) => `<span class="pf" data-pf="${p.key}">${esc(p.name)}</span>`).join("");
   highlightPlatform();
   const y = s.ytdlp || {};
-  $("#ytdlp-meta").textContent = y.version ? `yt-dlp ${y.version} · ${y.own ? "власна копія" : "з Homebrew"}` : "";
+  const vnum = (v) => (String(v || "").match(/\d+/g) || []).map(Number);
+  const newer = (a, b) => { const x = vnum(a), z = vnum(b); for (let i = 0; i < Math.max(x.length, z.length); i++) { if ((x[i] || 0) !== (z[i] || 0)) return (x[i] || 0) > (z[i] || 0); } return false; };
+  const fresh = !y.own || !y.latest ? "" : newer(y.latest, y.version) ? ` · вийшла ${y.latest}, оновлю сам, щойно черга звільниться` : " · найновіша, перевіряю щодня";
+  $("#ytdlp-meta").textContent = y.version ? `yt-dlp ${y.version} · ${y.own ? "власна копія" : "з Homebrew"}${fresh}` : "";
   $("#install-ytdlp").textContent = missing.length ? "Встановити компоненти" : "Оновити компоненти";
   $("#tools").innerHTML = Object.entries(s.tools)
     .map(([n, ok]) => `<span class="tool ${ok ? "" : "missing"}">${ok ? "✓" : "✗"} ${esc(n)}</span>`).join("");
@@ -922,6 +925,8 @@ async function loadJobs() {
     const ready = j.status === "done" && !j.converting;  // wait until the automatic MP4 has replaced the original
     const actions = [
       j.status === "running" || j.status === "queued" ? `<button class="chip-btn" data-cancel="${j.id}">Скасувати</button>` : "",
+      j.retry && /онови yt-dlp/i.test(j.error) ? `<button class="chip-btn accent" data-retry="${j.id}" data-update="1">Оновити yt-dlp і повторити</button>` : "",
+      j.retry ? `<button class="chip-btn${j.status === "error" ? " accent" : ""}" data-retry="${j.id}">Повторити</button>` : "",
       ready && j.kind === "download" && j.quality !== "audio" && j.files.length === 1 && !/\.mp4$/i.test(j.files[0]) ? `<button class="chip-btn accent" data-convert="${esc(j.files[0])}">→ MP4</button>` : "",
       ready && (j.kind === "download" || j.kind === "convert") && j.files.length === 1 ? `<button class="chip-btn accent" data-subs="${esc(j.files[0])}" title="Субтитри й підсумок розмови">→ SRT і підсумок</button>` : "",
       ready && last ? `<button class="chip-btn" data-reveal="${esc(last)}">Показати</button>` : "",
@@ -953,6 +958,13 @@ async function loadJobs() {
   }).join("") : '<div class="empty">Черга порожня</div>';
   document.querySelectorAll("[data-cancel]").forEach((b) => b.addEventListener("click", async () => {
     try { await api("/api/cancel", { id: b.dataset.cancel }); loadJobs(); } catch (e) { toast(e.message); }
+  }));
+  document.querySelectorAll("#jobs [data-retry]").forEach((b) => b.addEventListener("click", async () => {
+    try {
+      await api("/api/retry", { id: b.dataset.retry, update: !!b.dataset.update });
+      toast(b.dataset.update ? "Оновлюю yt-dlp, потім повторю завантаження" : "Повторюю");
+      loadJobs();
+    } catch (e) { toast(e.message); }
   }));
   document.querySelectorAll("#jobs [data-reveal]").forEach((b) => b.addEventListener("click", () => openFile(b.dataset.reveal, true)));
   document.querySelectorAll("#jobs [data-convert]").forEach((b) => b.addEventListener("click", () => sendTo("convert", b.dataset.convert)));

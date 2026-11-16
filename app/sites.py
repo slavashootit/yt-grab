@@ -116,7 +116,7 @@ def friendly_error(raw: str, url: str, cookies_browser: str = "") -> str:
                 "увімкни cookies з браузера.")
     elif re.search(r"http error 429|too many requests", text, re.I):
         hint = f"{name} тимчасово обмежив запити. Зачекай кілька хвилин або увімкни cookies."
-    elif re.search(r"video unavailable|has been removed|does not exist|not found", text, re.I):
+    elif re.search(r"video (is )?unavailable|has been removed|does not exist|not found", text, re.I):
         hint = "Відео видалене або недоступне."
     if not hint:
         return text

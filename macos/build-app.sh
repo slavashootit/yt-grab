@@ -32,7 +32,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/ytgrab"
 
 for arch in $ARCHS; do
   echo "→ Компілюю для ${arch}…"
-  swiftc -O -target "$arch-apple-macos12.0" -o "$BUILD/YTGrab-$arch" "$HERE/main.swift" -framework Cocoa -framework WebKit
+  swiftc -O -target "$arch-apple-macos12.0" -o "$BUILD/YTGrab-$arch" "$HERE/main.swift" -framework Cocoa -framework WebKit -framework UserNotifications
 
   echo "→ Завантажую uv для ${arch}…"
   uv_arch="$arch"; [ "$arch" = arm64 ] && uv_arch=aarch64

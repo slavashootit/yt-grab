@@ -3,6 +3,7 @@
 // Build with build-app.sh; requires Xcode Command Line Tools (swiftc) and Homebrew's python3/ffmpeg/yt-dlp.
 
 import Cocoa
+import UserNotifications
 import WebKit
 
 let appBackground = NSColor(srgbRed: 0x13 / 255.0, green: 0x15 / 255.0, blue: 0x19 / 255.0, alpha: 1)
@@ -37,7 +38,8 @@ final class AppWebView: WKWebView {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDelegate, WKScriptMessageHandler {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDelegate, WKScriptMessageHandler,
+                         UNUserNotificationCenterDelegate {
     var window: NSWindow!
     var webView: AppWebView!
     var server: Process?
@@ -45,12 +47,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
     var serverURL: URL?
     var logHandle: FileHandle?
     var quitting = false
+    var lineBuffer = ""
 
     // MARK: lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         buildWindow()
+        setUpNotifications()
         startServer()
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -275,6 +279,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
 
     func handleServerOutput(_ text: String, raw: Data) {
         logHandle?.write(raw)
+        // Pipe chunks can split a line: handle only complete lines, keep the rest for the next chunk.
+        lineBuffer += text
+        while let newline = lineBuffer.firstIndex(of: "\n") {
+            let line = String(lineBuffer[..<newline])
+            lineBuffer.removeSubrange(...newline)
+            if line.hasPrefix(eventPrefix) {
+                handleEvent(String(line.dropFirst(eventPrefix.count)))
+            }
+        }
         guard serverURL == nil else { return }
         serverOutput += text
         if let range = serverOutput.range(of: "http://127\\.0\\.0\\.1:[0-9]+/", options: .regularExpression),
@@ -303,6 +316,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         if process.isRunning {
             process.terminate()
         }
+    }
+
+    // MARK: notifications and Dock badge
+
+    let eventPrefix = "[ytgrab-event] "
+
+    func setUpNotifications() {
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    /// Lines like `[ytgrab-event] {"type":"done","title":"…","detail":"…"}` printed by app.py.
+    func handleEvent(_ json: String) {
+        guard let data = json.data(using: .utf8),
+              let event = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let type = event["type"] as? String else { return }
+        switch type {
+        case "active":
+            let count = (event["count"] as? NSNumber)?.intValue ?? 0
+            NSApp.dockTile.badgeLabel = count > 0 ? String(count) : nil
+        case "done", "error":
+            // In front the queue already shows it; a banner is for when YT Grab is in the background.
+            if NSApp.isActive && window.isVisible && !window.isMiniaturized { return }
+            let content = UNMutableNotificationContent()
+            content.title = (event["title"] as? String) ?? "YT Grab"
+            content.body = (event["detail"] as? String) ?? ""
+            content.sound = type == "error" ? .default : nil
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+            UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+            if type == "error" {
+                NSApp.requestUserAttention(.informationalRequest)
+            }
+        default:
+            break
+        }
+    }
+
+    // A click on a banner opens the queue.
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            self.window.deminiaturize(nil)
+            self.window.makeKeyAndOrderFront(nil)
+            self.webView.evaluateJavaScript("typeof show === 'function' && show('queue')", completionHandler: nil)
+        }
+        completionHandler()
     }
 
     // MARK: page bridge

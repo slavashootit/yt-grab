@@ -36,6 +36,13 @@ import transcribe
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = Path.home() / ".ytgrab"
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
+# The queue and its history survive a restart. (The override keeps test runs away from the real file.)
+JOBS_FILE = Path(os.environ.get("YTGRAB_JOBS_FILE") or CONFIG_DIR / "jobs.json")
+STATE_FILE = CONFIG_DIR / "state.json"
+HISTORY_LIMIT = 200
+# Job kinds that are saved to disk and can be started again from their own parameters.
+RETRY_KINDS = {"download", "photos", "profile", "convert", "transcribe"}
+EVENT_PREFIX = "[ytgrab-event]"
 AUDIO_EXT = {".m4a", ".mp3", ".opus", ".ogg", ".flac", ".wav"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".gif", ".avif"}
 MEDIA_EXT = {".mp4", ".mkv", ".webm", ".mov"} | AUDIO_EXT | IMAGE_EXT
@@ -481,9 +488,60 @@ class Job:
         self.converting = 0  # automatic MP4 conversions still running for this download
         self.date_from = ""
         self.date_to = ""
+        self.interrupted = False  # stopped because YT Grab was closed, not by the user
+
+    def to_disk(self) -> dict:
+        """What is needed to show the job after a restart and to start it again."""
+        finished = self.status in ("done", "error", "cancelled")
+        data = {
+            "id": self.id, "kind": self.kind, "url": self.url, "title": self.title, "quality": self.quality,
+            "use_archive": self.use_archive, "mp4": self.mp4, "replace": self.replace, "status": self.status,
+            "percent": self.percent if finished else 0.0, "current": self.current if finished else "",
+            "error": self.error, "note": self.note, "files": list(self.files), "created": self.created,
+            "date_from": self.date_from, "date_to": self.date_to, "interrupted": self.interrupted,
+        }
+        for key in ("preset", "res", "engine", "language", "want_txt", "want_summary", "platform"):
+            if hasattr(self, key):
+                data[key] = getattr(self, key)
+        if self.kind in ("photos", "profile") and isinstance(getattr(self, "info", None), dict):
+            data["info"] = self.info
+        return data
+
+    @classmethod
+    def from_disk(cls, data: dict) -> "Job":
+        job = cls(str(data["url"]), str(data.get("title") or ""), str(data.get("quality") or ""),
+                  bool(data.get("use_archive")), kind=str(data.get("kind") or "download"))
+        job.id = str(data.get("id") or job.id)
+        job.mp4, job.replace = bool(data.get("mp4")), bool(data.get("replace"))
+        job.status = str(data.get("status") or "cancelled")
+        job.percent = float(data.get("percent") or 0.0)
+        job.current, job.error, job.note = (str(data.get(k) or "") for k in ("current", "error", "note"))
+        job.files = [str(f) for f in data.get("files") or []]
+        job.created = float(data.get("created") or job.created)
+        job.date_from, job.date_to = str(data.get("date_from") or ""), str(data.get("date_to") or "")
+        for key in ("preset", "res", "engine", "language", "want_txt", "want_summary", "platform", "info"):
+            if key in data:
+                setattr(job, key, data[key])
+        if job.status in ("queued", "running") or data.get("interrupted"):
+            job.status, job.percent, job.current = "cancelled", 0.0, ""
+            job.note = ("Перервано: YT Grab закрили. «Повторити» докачає з того ж місця." if job.kind == "download"
+                        else "Перервано: YT Grab закрили.")
+        return job
+
+    def can_retry(self) -> bool:
+        if self.kind not in RETRY_KINDS or self.status not in ("error", "cancelled"):
+            return False
+        if self.kind == "convert":
+            return hasattr(self, "preset") and Path(self.url).is_file()
+        if self.kind == "transcribe":
+            return hasattr(self, "engine") and Path(self.url).is_file()
+        if self.kind == "profile":
+            return isinstance(getattr(self, "info", None), dict)
+        return True
 
     def to_json(self) -> dict:
         return {
+            "retry": self.can_retry(),
             "id": self.id, "kind": self.kind, "note": self.note, "url": self.url, "mp4": self.mp4, "title": self.title, "quality": self.quality,
             "status": self.status, "percent": self.percent, "speed": self.speed,
             "eta": self.eta, "item": self.item, "current": self.current, "error": self.error,
@@ -829,8 +887,79 @@ def finish_ytdlp_setup(job: Job) -> None:
     job.current = "усе встановлено" if not missing else "ще бракує: " + ", ".join(missing)
 
 
-def start_setup() -> Job:
-    return start_steps("Встановлення компонентів", components_setup_steps, finish_ytdlp_setup)
+def start_setup(title: str = "Встановлення компонентів") -> Job:
+    return start_steps(title, components_setup_steps, finish_ytdlp_setup)
+
+
+# ---------- keeping yt-dlp fresh ----------
+
+def read_state() -> dict:
+    try:
+        data = json.loads(STATE_FILE.read_text("utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def write_state(**changes) -> None:
+    data = read_state()
+    data.update(changes)
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        STATE_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
+    except OSError:
+        pass
+
+
+def version_tuple(version: str | None) -> tuple[int, ...]:
+    return tuple(int(part) for part in re.findall(r"\d+", version or ""))
+
+
+def latest_ytdlp(force: bool = False) -> str | None:
+    """Newest yt-dlp on PyPI; asked at most once in 20 hours."""
+    state = read_state()
+    if not force and time.time() - float(state.get("ytdlp_checked") or 0) < 20 * 3600:
+        return state.get("ytdlp_latest")
+    try:
+        with urllib.request.urlopen("https://pypi.org/pypi/yt-dlp/json", timeout=15) as resp:
+            latest = str(json.load(resp)["info"]["version"])
+    except Exception:  # offline or PyPI is down: try again on the next round
+        return state.get("ytdlp_latest")
+    write_state(ytdlp_checked=time.time(), ytdlp_latest=latest)
+    return latest
+
+
+def ytdlp_outdated() -> str | None:
+    """The newer version, when YT Grab's own yt-dlp is behind PyPI."""
+    info = ytdlp_info()
+    if not (info["own"] and info["version"]):
+        return None
+    latest = latest_ytdlp()
+    return latest if latest and version_tuple(latest) > version_tuple(info["version"]) else None
+
+
+def active_jobs() -> int:
+    return sum(1 for j in list(jobs.values()) if j.status in ("queued", "running"))
+
+
+def watch_ytdlp() -> None:
+    """Sites change weekly and an old yt-dlp is the usual reason a download fails,
+    so a newer release is installed quietly as soon as the queue is idle."""
+    time.sleep(20)
+    while True:
+        try:
+            latest = ytdlp_outdated() if can_self_install() else None
+            if latest:
+                while active_jobs():
+                    time.sleep(30)
+                job = start_setup(f"Оновлення yt-dlp до {latest}")
+                while job.status in ("queued", "running"):
+                    time.sleep(2)
+                if job.status != "done":
+                    time.sleep(6 * 3600)  # no luck (offline?): do not hammer
+        except Exception as exc:
+            print(f"yt-dlp update check failed: {exc}", flush=True)
+        time.sleep(3600)
 
 
 def start_asr_setup(engine: str) -> Job:
@@ -1305,6 +1434,134 @@ def cancel_job(job_id: str) -> None:
         job.status = "cancelled"
 
 
+# ---------- retry ----------
+
+def retry_job(job_id: str) -> Job:
+    """Start a failed or cancelled job again with the same parameters; the old card goes away."""
+    job = jobs.get(job_id)
+    if not job:
+        raise ValueError("Завдання не знайдено")
+    if not job.can_retry():
+        raise ValueError("Це завдання не можна повторити")
+    if job.kind == "download":
+        new = start_job(job.url, "" if job.title == job.url else job.title, job.quality, job.use_archive,
+                        job.mp4, job.date_from, job.date_to)
+    elif job.kind == "photos":
+        new = start_photos(job.url, {**(getattr(job, "info", None) or {}), "title": job.title})
+    elif job.kind == "profile":
+        new = start_profile(job.url, str(job.info.get("tab") or "reels"), job.date_from, job.date_to, job.mp4)
+    elif job.kind == "convert":
+        new = start_convert(job.url, job.preset, job.res, replace=job.replace)
+    else:
+        new = start_transcription(job.url, job.engine, job.language, bool(job.want_txt),
+                                  bool(getattr(job, "want_summary", False)))
+    with jobs_lock:
+        jobs.pop(job_id, None)
+    return new
+
+
+def retry_after_update(job_id: str) -> Job:
+    """Update yt-dlp first, then retry: the cure for most "403" and "unable to extract" failures."""
+    job = jobs.get(job_id)
+    if not job or not job.can_retry():
+        raise ValueError("Це завдання не можна повторити")
+    latest_ytdlp(force=True)
+    setup = start_setup("Оновлення yt-dlp")
+
+    def wait() -> None:
+        while setup.status in ("queued", "running"):
+            time.sleep(1)
+        if setup.status == "done":
+            try:
+                retry_job(job_id)
+            except ValueError as exc:
+                print(f"retry after update: {exc}", flush=True)
+
+    threading.Thread(target=wait, daemon=True).start()
+    return setup
+
+
+# ---------- queue on disk, events for the macOS shell ----------
+
+def load_jobs() -> None:
+    try:
+        items = json.loads(JOBS_FILE.read_text("utf-8"))
+    except (OSError, ValueError):
+        return
+    with jobs_lock:
+        for item in items if isinstance(items, list) else []:
+            try:
+                job = Job.from_disk(item)
+            except (KeyError, TypeError, ValueError):
+                continue
+            jobs[job.id] = job
+
+
+def jobs_snapshot() -> str:
+    with jobs_lock:
+        kept = sorted((j for j in jobs.values() if j.kind in RETRY_KINDS), key=lambda j: j.created, reverse=True)
+        return json.dumps([j.to_disk() for j in kept[:HISTORY_LIMIT]], ensure_ascii=False, indent=1)
+
+
+def save_jobs(snapshot: str) -> None:
+    try:
+        JOBS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = JOBS_FILE.with_suffix(".tmp")
+        tmp.write_text(snapshot, "utf-8")
+        tmp.replace(JOBS_FILE)
+    except OSError as exc:
+        print(f"queue not saved: {exc}", flush=True)
+
+
+def emit_event(**event) -> None:
+    """One line on stdout; the macOS app turns it into a notification or a Dock badge."""
+    print(EVENT_PREFIX + " " + json.dumps(event, ensure_ascii=False), flush=True)
+
+
+def watch_jobs() -> None:
+    saved = jobs_snapshot()
+    seen = {j.id for j in list(jobs.values())}  # restored history never notifies
+    last_active = -1
+    recent: list[float] = []  # when the latest notifications went out
+    held = {"done": 0, "error": 0}  # finished during a burst, reported once the queue is empty
+    while True:
+        time.sleep(1)
+        try:
+            snapshot = jobs_snapshot()
+            if snapshot != saved:
+                save_jobs(snapshot)
+                saved = snapshot
+            active = active_jobs()
+            if active != last_active:
+                emit_event(type="active", count=active)
+                last_active = active
+            now = time.time()
+            recent = [t for t in recent if now - t < 60]
+            for job in list(jobs.values()):
+                if job.id in seen or job.status in ("queued", "running") or job.converting:
+                    continue
+                seen.add(job.id)
+                # Automatic MP4 conversions report through their download; setup and cancels stay quiet.
+                if job.parent is not None or job.kind == "setup" or job.status == "cancelled":
+                    continue
+                if len(recent) >= 3:
+                    held[job.status] += 1  # a batch: one summary instead of a wall of banners
+                    continue
+                recent.append(now)
+                if job.status == "done":
+                    detail = job.error or ("Готово" + (f" · файлів: {len(job.files)}" if len(job.files) > 1 else ""))
+                else:
+                    detail = "Помилка: " + job.error[:140]
+                emit_event(type=job.status, title=job.title[:120], detail=detail)
+            if not active and (held["done"] or held["error"]):
+                detail = f"Готово: {held['done']}" + (f" · з помилкою: {held['error']}" if held["error"] else "")
+                emit_event(type="error" if held["error"] and not held["done"] else "done",
+                           title="Черга завершена", detail=detail)
+                held = {"done": 0, "error": 0}
+        except Exception as exc:
+            print(f"queue watcher: {exc}", flush=True)
+
+
 # ---------- downloaded files ----------
 
 def list_downloads(limit: int = 500) -> list[dict]:
@@ -1417,7 +1674,9 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
         elif path == "/api/status":
-            self._send_json({"tools": tool_status(), "ytdlp": ytdlp_info(), "settings": public_settings(),
+            state = read_state()
+            self._send_json({"tools": tool_status(), "ytdlp": {**ytdlp_info(), "latest": state.get("ytdlp_latest")},
+                             "settings": public_settings(),
                              "self_install": can_self_install(),
                              "setup_running": any(j.kind == "setup" and j.status in ("queued", "running")
                                                   for j in jobs.values()),
@@ -1499,6 +1758,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/photos":
                 info = data.get("info") if isinstance(data.get("info"), dict) else {}
                 self._send_json(start_photos(normalize_url(str(data.get("url", ""))), info).to_json())
+            elif path == "/api/retry":
+                job_id = str(data.get("id", ""))
+                job = retry_after_update(job_id) if data.get("update") else retry_job(job_id)
+                self._send_json(job.to_json())
             elif path == "/api/cancel":
                 cancel_job(str(data.get("id", "")))
                 self._send_json({"ok": True})
@@ -1582,9 +1845,12 @@ class Handler(BaseHTTPRequestHandler):
 
 def stop_all_jobs() -> None:
     for job in list(jobs.values()):
+        if job.status in ("queued", "running"):
+            job.interrupted = True
         job.cancelled = True
         if job.proc and job.proc.poll() is None:
             job.proc.terminate()
+    save_jobs(jobs_snapshot())
 
 
 def watch_parent(pid: int) -> None:
@@ -1617,6 +1883,10 @@ def main() -> None:
             continue
     if server is None:
         sys.exit("Не вдалося знайти вільний порт")
+    load_jobs()
+    threading.Thread(target=watch_jobs, daemon=True).start()
+    if os.environ.get("YTGRAB_NO_AUTOUPDATE") != "1":
+        threading.Thread(target=watch_ytdlp, daemon=True).start()
     url = f"http://127.0.0.1:{server.server_address[1]}/"
     missing = missing_components()
     print(f"YT Grab працює: {url}", flush=True)
