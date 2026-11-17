@@ -871,12 +871,20 @@ function renderResult() {
       size: [q.height >= 1440 ? q.height + "p" : "", fmtSize(q.size), q.fps && q.fps > 30 ? Math.round(q.fps) + " fps" : ""].filter(Boolean).join(" · "),
     }));
     if (!options.length) options.push({ q: "best", label: "Найкраща", size: "" });
+    options.forEach((o, i) => { o.h = heights[i] ? heights[i].height : 0; });
   } else {
     options = [{ q: "best", label: "Найкраща" }, { q: 2160, label: "До 4K" }, { q: 1440, label: "До 2K" },
       { q: 1080, label: "До 1080p" }, { q: 720, label: "До 720p" }];
   }
   options.push({ q: "audio", label: "Звук", size: ["MP3 320 kbps", fmtSize(info.audio_size)].filter(Boolean).join(" · ") });
   state.choice = String(options[0].q);
+  // Start from the quality chosen last time on this site (or the nearest lower one).
+  const remembered = (((state.settings || {}).site_quality) || {})[siteKey(state.url)];
+  if (remembered) {
+    const hit = remembered === "best" || remembered === "audio" ? options.find((o) => String(o.q) === remembered)
+      : options.find((o) => (o.h || +o.q) && (o.h || +o.q) <= +remembered) || null;
+    if (hit) state.choice = String(hit.q);
+  }
   const sizeText = () => {
     const o = options.find((x) => String(x.q) === state.choice) || options[0];
     if (isList && o.q === "best") return state.period && state.period !== "all" ? "лише за обраний період" : playlistTotal(info);
@@ -957,11 +965,16 @@ function bindMp4Toggle(root) {
 function wantMp4() {
   return !!(state.settings && state.settings.auto_mp4);
 }
+function siteKey(url) {
+  return (detectPlatform(url || "") || {}).key || "other";
+}
 async function download(quality) {
   const dates = state.info && state.info.kind === "playlist" ? periodDates() : {};
   if (!dates) return;
   try {
     await api("/api/download", { url: state.url, title: state.info && state.info.title, kind: state.info && state.info.kind, thumbnail: (state.info && state.info.thumbnail) || "", quality, mp4: wantMp4(), ...dates });
+    api("/api/settings", { site_quality: { [siteKey(state.url)]: String(quality) } })
+      .then((saved) => { state.settings = saved; }).catch(() => {});
     toast(`Додано в чергу: ${qualityLabel(quality)}${wantMp4() && quality !== "audio" ? " → MP4" : ""}${dates.date_from || dates.date_to ? " · " + periodText(dates) : ""}`);
     loadJobs();
   } catch (e) { toast(e.message); }
@@ -1131,7 +1144,8 @@ function dockMeta(j) {
   if (j.status === "running") {
     const verb = { convert: "Конвертую", transcribe: "Розпізнаю", setup: "Встановлюю" }[j.kind] || "Качаю";
     const now = j.current && j.current !== j.title && ["setup", "transcribe", "photos", "profile"].includes(j.kind) ? j.current : "";
-    return [now || verb, j.item ? "відео " + j.item : "", j.speed, j.eta ? "ще " + j.eta : ""].filter(Boolean).join(" · ");
+    const label = now || j.phase || verb;
+    return [label.charAt(0).toUpperCase() + label.slice(1), j.item ? "відео " + j.item : "", j.speed, j.eta ? "ще " + j.eta : ""].filter(Boolean).join(" · ");
   }
   if (j.status === "done") {
     if (j.error) return j.error;
@@ -1630,8 +1644,46 @@ $("#txt-input").addEventListener("change", async () => {
   $("#txt-input").value = "";
 });
 
+// ---------- fast path: links from the clipboard ----------
+// Coming back to YT Grab with a fresh link in the clipboard starts the search by itself.
+async function pickUpClipboard() {
+  if (!NATIVE || !state.platforms || !$("#view-home").classList.contains("active")) return;
+  const field = $("#url");
+  const typed = field.value.trim();
+  if (typed && typed !== state.autoUrl) return;  // the user is typing something else: leave it
+  const urls = extractUrls(String((await nativeCall("paste")) || ""));
+  if (urls.length !== 1 || !detectPlatform(urls[0]) || urls[0] === state.lastClip) return;
+  state.lastClip = state.autoUrl = urls[0];
+  field.value = urls[0];
+  highlightPlatform();
+  toast("Підхопив посилання з буфера");
+  $("#url-form").requestSubmit();
+}
+window.addEventListener("focus", pickUpClipboard);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) pickUpClipboard(); });
+
+// ⌘V with nothing focused (any section) pastes the link(s) into the download screen.
+const editable = (el) => !!(el && el.closest && el.closest("input, textarea, select, [contenteditable]"));
+document.addEventListener("beforepaste", (ev) => { if (!editable(ev.target)) ev.preventDefault(); });  // WebKit: enables Edit → Paste
+document.addEventListener("paste", (ev) => {
+  if (editable(ev.target)) return;
+  const urls = extractUrls(ev.clipboardData ? ev.clipboardData.getData("text") : "");
+  if (!urls.length) return;
+  ev.preventDefault();
+  if (!$("#view-home").classList.contains("active")) show("home");
+  useUrls(urls);
+});
+// Pasting a link into the empty field searches right away, no extra click.
+$("#url").addEventListener("paste", () => {
+  const before = $("#url").value.trim();
+  setTimeout(() => {
+    const value = $("#url").value.trim();
+    if (!before && /^https?:\/\/\S+$/i.test(value)) { state.lastClip = value; $("#url-form").requestSubmit(); }
+  }, 0);
+});
+
 // ---------- boot ----------
-loadStatus().catch((e) => toast(e.message));
+loadStatus().then(pickUpClipboard).catch((e) => toast(e.message));
 loadJobs();
 loadFiles();
 // Every second while something runs or the queue is open; otherwise every 5 s, so jobs that start

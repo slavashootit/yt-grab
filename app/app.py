@@ -134,6 +134,15 @@ def save_settings(new: dict) -> dict:
             data["keep_original"] = bool(new["keep_original"])
         if "summary" in new:
             data["summary"] = bool(new["summary"])
+        if "site_quality" in new:
+            # {"youtube": "1080", "tiktok": "best", …}: the last quality chosen for each site.
+            raw = new["site_quality"] if isinstance(new["site_quality"], dict) else {}
+            merged = dict(data.get("site_quality") or {})
+            for site, quality in raw.items():
+                site, quality = str(site)[:40], str(quality)
+                if quality in ("best", "audio") or quality.isdigit():
+                    merged[site] = quality
+            data["site_quality"] = merged
         if "summary_lang" in new:
             if new["summary_lang"] not in dict(summarize.LANGUAGES):
                 raise ValueError("Невідома мова підсумку")
@@ -496,6 +505,9 @@ class Job:
         self.date_to = ""
         self.interrupted = False  # stopped because YT Grab was closed, not by the user
         self.thumbnail = ""  # preview image for the queue card
+        self.phase = ""  # what is happening right now, in words: "читаю сторінку", "зводжу відео й звук"…
+        self.streams = 1  # separate files yt-dlp fetches for one video (video + audio = 2)
+        self.stream = 0  # which of them is downloading now
 
     def to_disk(self) -> dict:
         """What is needed to show the job after a restart and to start it again."""
@@ -550,7 +562,7 @@ class Job:
 
     def to_json(self) -> dict:
         return {
-            "retry": self.can_retry(), "thumbnail": self.thumbnail,
+            "retry": self.can_retry(), "thumbnail": self.thumbnail, "phase": self.phase,
             "id": self.id, "kind": self.kind, "note": self.note, "url": self.url, "mp4": self.mp4, "title": self.title, "quality": self.quality,
             "status": self.status, "percent": self.percent, "speed": self.speed,
             "eta": self.eta, "item": self.item, "current": self.current, "error": self.error,
@@ -565,14 +577,45 @@ def parse_progress(job: Job, line: str) -> None:
         return
     percent, speed, eta, index, total, title = (p.strip() for p in parts)
     try:
-        job.percent = float(percent.rstrip("%"))
+        part = float(percent.rstrip("%"))
     except ValueError:
-        pass
+        part = None
+    if part is not None:
+        # One bar for the whole job: video and audio streams count as halves of one video,
+        # and a playlist moves through its videos instead of restarting at 0 % for each.
+        video = (min(job.stream, job.streams - 1) + part / 100) / max(1, job.streams)
+        if index.isdigit() and total.isdigit() and int(total) > 0:
+            job.percent = min(100.0, (int(index) - 1 + video) / int(total) * 100)
+        else:
+            job.percent = video * 100
     job.speed = "" if speed in ("NA", "Unknown B/s") else speed
     job.eta = "" if eta in ("NA", "Unknown") else eta
     job.item = f"{index}/{total}" if index not in ("NA", "") and total not in ("NA", "") else ""
+    job.phase = "качаю звук" if job.streams > 1 and job.stream >= 1 else "качаю"
     if title and title != "NA":
         job.current = title
+
+
+FORMATS_LINE = re.compile(r"Downloading \d+ format\(s\): (\S+)")
+
+
+def track_phase(job: Job, line: str) -> None:
+    """Turn yt-dlp's log lines into a short state for the queue card."""
+    formats = FORMATS_LINE.search(line)
+    if formats:
+        job.streams, job.stream = formats.group(1).count("+") + 1, -1
+    elif line.startswith("[download] Destination:"):
+        job.stream += 1
+    elif line.startswith("[Merger]"):
+        job.phase, job.speed, job.eta = "зводжу відео й звук", "", ""
+    elif line.startswith("[ExtractAudio]"):
+        job.phase, job.speed, job.eta = "роблю MP3", "", ""
+    elif line.startswith(("[EmbedSubtitle]", "[Metadata]", "[EmbedThumbnail]")):
+        job.phase, job.speed, job.eta = "дописую дані у файл", "", ""
+    elif "has already been recorded in the archive" in line or "has already been downloaded" in line:
+        job.phase = "пропускаю вже скачане"
+    elif line.startswith("[") and not job.percent and "Extracting URL" in line:
+        job.phase = "читаю сторінку"
 
 
 def run_job(job: Job) -> None:
@@ -589,7 +632,7 @@ def run_job(job: Job) -> None:
             if sites.PHOTO_POST.search(job.url) and photos.gallery_bin(VENV_DIR):
                 return switch_to_photos(job, cfg)
             cmd = build_download_cmd(job.url, job.quality, job.use_archive, cfg, files_log, job.date_from, job.date_to)
-            job.status = "running"
+            job.status, job.phase = "running", "читаю сторінку"
             job.proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                 encoding="utf-8", errors="replace", bufsize=1,
@@ -601,8 +644,7 @@ def run_job(job: Job) -> None:
                     parse_progress(job, line)
                 elif line:
                     tail = (tail + [line])[-20:]
-                    if line.startswith("[Merger]") or line.startswith("[ExtractAudio]"):
-                        job.speed, job.eta = "", "обробка…"
+                    track_phase(job, line)
             code = job.proc.wait()
             job.files = [l for l in Path(files_log).read_text("utf-8").splitlines() if l.strip()]
             if job.mp4 and job.files and not job.cancelled:
