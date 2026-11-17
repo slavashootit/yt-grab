@@ -380,6 +380,31 @@
   .dcard.compact.done .dmeta { color: var(--ok); }
   .dcard.compact .dact { margin: 6px 0 0; }
   .dcard.compact .chip-btn { height: 24px; font-size: 12px; padding: 0 9px; }
+  /* ---------- design B: the other sections ---------- */
+  .card { border: 0; background: var(--surface); border-radius: 14px; }
+  .card h3 { text-transform: none; letter-spacing: 0; font-size: 13.5px; color: var(--text); }
+  .page-head { margin-bottom: 18px; }
+  .files { border: 0; background: var(--surface); border-radius: 14px; }
+  .file { border-bottom-color: var(--border); }
+  .file:hover { background: var(--surface-2); }
+  .dropzone { border-color: var(--border-strong); border-radius: 12px; }
+  .option { border: 0; background: var(--surface-2); border-radius: 10px; }
+  .option:hover { background: var(--surface-3); }
+  .option.on { background: #2a1e19; box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .option input[type=radio] { accent-color: var(--accent); }
+  .setting { border-bottom-color: var(--border); }
+  .tool { background: #1c2a20; color: var(--ok); }
+  .tool.missing { background: #2c1714; color: var(--err); }
+  .tag { background: var(--surface-3); color: #d8cfc4; }
+  .btn.primary:disabled { background: var(--surface-3); color: var(--faint); opacity: 1; }
+  #jobs { display: flex; flex-direction: column; gap: 10px; }
+  .dcard.wide { display: grid; grid-template-columns: 176px minmax(0, 1fr); column-gap: 16px; align-items: start; padding: 10px; }
+  .dcard.wide .dframe { grid-row: 1 / span 5; }
+  .dcard.wide .dtitle { margin: 2px 0 4px; font-size: 14px; }
+  .dtags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .dtags:empty { display: none; }
+  .dcard.wide .dmeta { margin: 0; -webkit-line-clamp: 3; }
+  .dcard.wide .dact { margin: 10px 0 0; flex-wrap: wrap; }
   @keyframes card-in { from { transform: translateY(10px) scale(.97); } to { transform: none; } }
   @keyframes pop { 0% { transform: scale(.7); } 100% { transform: none; } }
   @media (prefers-reduced-motion: reduce) {
@@ -470,6 +495,7 @@
   <section class="view" id="view-queue">
     <div class="page-head"><div><h2>Черга</h2><p class="lead">Завантаження, конвертація і субтитри</p></div><button class="btn" id="clear-btn">Прибрати завершені</button></div>
     <div id="jobs"></div>
+    <div class="empty" id="jobs-empty" hidden>Тут з'являтимуться завантаження, конвертації й субтитри</div>
   </section>
 
   <!-- downloads -->
@@ -573,7 +599,7 @@
         <div><label class="title">Компоненти</label><p>yt-dlp, ffmpeg, deno, curl_cffi (для TikTok) і gallery-dl (для фото). YT Grab тримає їх у ~/.ytgrab і оновлює цією кнопкою — корисно, якщо якийсь сайт перестав качати.</p></div>
         <div>
           <div class="tools" id="tools"></div>
-          <div class="row"><button class="btn primary" id="install-ytdlp">Оновити компоненти</button><span class="muted small" id="ytdlp-meta"></span></div>
+          <div class="row"><button class="btn" id="install-ytdlp">Оновити компоненти</button><span class="muted small" id="ytdlp-meta"></span></div>
         </div>
       </div>
     </div>
@@ -1082,61 +1108,10 @@ async function loadJobs() {
   try { state.jobs = await api("/api/jobs"); } catch { return; }
   const active = state.jobs.filter((j) => j.status === "running" || j.status === "queued").length;
   $("#badge-queue").textContent = active || "";
-  const statusText = { queued: "в черзі", running: "качаю", done: "готово", error: "помилка", cancelled: "скасовано" };
-  const runningText = { convert: "конвертую", setup: "встановлюю", transcribe: "розпізнаю" };
   const busy = (kind) => state.jobs.filter((j) => j.kind === kind && (j.status === "running" || j.status === "queued")).length || "";
   $("#badge-convert").textContent = busy("convert");
   $("#badge-subs").textContent = busy("transcribe");
-  $("#jobs").innerHTML = state.jobs.length ? state.jobs.map((j) => {
-    const last = j.files.length ? j.files[j.files.length - 1] : "";
-    const ready = j.status === "done" && !j.converting;  // wait until the automatic MP4 has replaced the original
-    const actions = [
-      j.status === "running" || j.status === "queued" ? `<button class="chip-btn" data-cancel="${j.id}">Скасувати</button>` : "",
-      j.retry && /онови yt-dlp/i.test(j.error) ? `<button class="chip-btn accent" data-retry="${j.id}" data-update="1">Оновити yt-dlp і повторити</button>` : "",
-      j.retry ? `<button class="chip-btn${j.status === "error" ? " accent" : ""}" data-retry="${j.id}">Повторити</button>` : "",
-      ready && j.kind === "download" && j.quality !== "audio" && j.files.length === 1 && !/\.mp4$/i.test(j.files[0]) ? `<button class="chip-btn accent" data-convert="${esc(j.files[0])}">→ MP4</button>` : "",
-      ready && (j.kind === "download" || j.kind === "convert") && j.files.length === 1 ? `<button class="chip-btn accent" data-subs="${esc(j.files[0])}" title="Субтитри й підсумок розмови">→ SRT і підсумок</button>` : "",
-      ready && last ? `<button class="chip-btn" data-reveal="${esc(last)}">Показати</button>` : "",
-    ].join("");
-    return `
-    <div class="job ${j.status}">
-      <div class="job-icon">${ICONS[j.kind] || ICONS.download}</div>
-      <div class="job-body">
-        <div class="job-top">
-          <span class="job-title" title="${esc(j.title)}">${esc(j.title)}</span>
-          <span class="tag">${jobTag(j)}</span>
-          ${j.converting ? '<span class="tag running">конвертую</span>' : `<span class="tag ${j.status}">${j.status === "running" ? (runningText[j.kind] || statusText.running) : statusText[j.status] || j.status}</span>`}
-          <div class="job-actions">${actions}</div>
-        </div>
-        <div class="bar"><div style="width:${j.percent}%"></div></div>
-        <div class="job-info num">
-          <span>${j.percent.toFixed(1)}%</span>
-          ${j.item ? `<span>відео ${esc(j.item)}</span>` : ""}
-          ${j.speed ? `<span>${esc(j.speed)}</span>` : ""}
-          ${j.eta ? `<span>залишилось ${esc(j.eta)}</span>` : ""}
-          ${j.files.length > 1 ? `<span>файлів: ${j.files.length}</span>` : ""}
-          ${j.kind === "download" && (j.date_from || j.date_to) ? `<span>${esc(periodText(j))}</span>` : ""}
-          ${j.current && j.current !== j.title ? `<span>${esc(j.current)}</span>` : ""}
-        </div>
-        ${j.note ? `<div class="job-note${/^Готово/.test(j.note) ? " ok" : ""}">${esc(j.note)}</div>` : ""}
-        ${j.error ? `<div class="job-err">${esc(j.error)}${/Налаштування/.test(j.error) ? ' <button class="chip-btn accent" data-goto="settings">Налаштування</button>' : ""}</div>` : ""}
-      </div>
-    </div>`;
-  }).join("") : '<div class="empty">Черга порожня</div>';
-  document.querySelectorAll("[data-cancel]").forEach((b) => b.addEventListener("click", async () => {
-    try { await api("/api/cancel", { id: b.dataset.cancel }); loadJobs(); } catch (e) { toast(e.message); }
-  }));
-  document.querySelectorAll("#jobs [data-retry]").forEach((b) => b.addEventListener("click", async () => {
-    try {
-      await api("/api/retry", { id: b.dataset.retry, update: !!b.dataset.update });
-      toast(b.dataset.update ? "Оновлюю yt-dlp, потім повторю завантаження" : "Повторюю");
-      loadJobs();
-    } catch (e) { toast(e.message); }
-  }));
-  document.querySelectorAll("#jobs [data-reveal]").forEach((b) => b.addEventListener("click", () => openFile(b.dataset.reveal, true)));
-  document.querySelectorAll("#jobs [data-convert]").forEach((b) => b.addEventListener("click", () => sendTo("convert", b.dataset.convert)));
-  document.querySelectorAll("#jobs [data-subs]").forEach((b) => b.addEventListener("click", () => sendTo("subs", b.dataset.subs)));
-  bindGoto($("#jobs"));
+  renderQueue(state.jobs);
   const setupDone = state.jobs.filter((j) => j.kind === "setup" && j.status === "done").map((j) => j.id).join();
   if (setupDone && setupDone !== state.seenSetup) {
     state.seenSetup = setupDone;
@@ -1155,7 +1130,8 @@ function dockMeta(j) {
   if (j.status === "queued") return "Чекає своєї черги";
   if (j.status === "running") {
     const verb = { convert: "Конвертую", transcribe: "Розпізнаю", setup: "Встановлюю" }[j.kind] || "Качаю";
-    return [verb, j.item ? "відео " + j.item : "", j.speed, j.eta ? "ще " + j.eta : ""].filter(Boolean).join(" · ");
+    const now = j.current && j.current !== j.title && ["setup", "transcribe", "photos", "profile"].includes(j.kind) ? j.current : "";
+    return [now || verb, j.item ? "відео " + j.item : "", j.speed, j.eta ? "ще " + j.eta : ""].filter(Boolean).join(" · ");
   }
   if (j.status === "done") {
     if (j.error) return j.error;
@@ -1173,7 +1149,7 @@ function makeDockCard(j) {
     <span class="dbadge num"></span></div><div class="dtitle"></div><div class="dmeta num"></div><div class="dact"></div>`;
   return el;
 }
-function updateDockCard(el, j, compact) {
+function updateDockCard(el, j, compact, actions) {
   const status = j.converting ? "running" : j.status;
   if (el.dataset.status && el.dataset.status !== "done" && status === "done") el.classList.add("just-done");
   el.dataset.status = status;
@@ -1192,7 +1168,7 @@ function updateDockCard(el, j, compact) {
   const meta = dockMeta(j);
   if (el.querySelector(".dmeta").textContent !== meta) el.querySelector(".dmeta").textContent = meta;
   const busy = j.status === "running" || j.status === "queued";
-  const acts = busy ? '<button class="chip-btn" type="button" data-dact="cancel">Скасувати</button>'
+  const acts = actions !== undefined ? actions : busy ? '<button class="chip-btn" type="button" data-dact="cancel">Скасувати</button>'
     : j.retry ? '<button class="chip-btn accent" type="button" data-dact="retry">Повторити</button>'
     : status === "done" && j.files.length ? '<button class="chip-btn" type="button" data-dact="reveal">Показати</button>' : "";
   const box = el.querySelector(".dact");
@@ -1232,6 +1208,70 @@ $("#dock-list").addEventListener("click", async (ev) => {
   } catch (e) { toast(e.message); }
 });
 bindGoto($(".dock"));
+
+// Full queue: the same cards, wide, with every action.
+const queueCards = new Map();
+function queueActions(j) {
+  const last = j.files.length ? j.files[j.files.length - 1] : "";
+  const ready = j.status === "done" && !j.converting;  // wait until the automatic MP4 has replaced the original
+  return [
+    j.status === "running" || j.status === "queued" ? '<button class="chip-btn" type="button" data-qact="cancel">Скасувати</button>' : "",
+    j.retry && /онови yt-dlp/i.test(j.error) ? '<button class="chip-btn accent" type="button" data-qact="update">Оновити yt-dlp і повторити</button>' : "",
+    j.retry ? `<button class="chip-btn${j.status === "error" ? " accent" : ""}" type="button" data-qact="retry">Повторити</button>` : "",
+    ready && j.kind === "download" && j.quality !== "audio" && j.files.length === 1 && !/\.mp4$/i.test(j.files[0]) ? '<button class="chip-btn" type="button" data-qact="mp4">→ MP4</button>' : "",
+    ready && (j.kind === "download" || j.kind === "convert") && j.files.length === 1 ? '<button class="chip-btn" type="button" data-qact="subs" title="Субтитри й підсумок розмови">→ SRT і підсумок</button>' : "",
+    ready && last ? '<button class="chip-btn" type="button" data-qact="reveal">Показати</button>' : "",
+    /Налаштування/.test(j.error) ? '<button class="chip-btn" type="button" data-qact="settings">Налаштування</button>' : "",
+  ].join("");
+}
+function queueTags(j) {
+  const tags = [jobTag(j)];
+  if (j.kind === "download" && (j.date_from || j.date_to)) tags.push(esc(periodText(j)));
+  if (j.files.length > 1) tags.push("файлів: " + j.files.length);
+  return tags.map((t) => `<span class="tag">${t}</span>`).join("");
+}
+function renderQueue(list) {
+  const box = $("#jobs");
+  const keep = new Set(list.map((j) => j.id));
+  for (const [id, el] of queueCards) if (!keep.has(id)) { el.remove(); queueCards.delete(id); }
+  list.forEach((j, i) => {
+    let el = queueCards.get(j.id);
+    if (!el) {
+      el = makeDockCard(j);
+      el.classList.add("wide");
+      el.querySelector(".dtitle").insertAdjacentHTML("afterend", '<div class="dtags"></div>');
+      queueCards.set(j.id, el);
+    }
+    if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+    updateDockCard(el, j, false, queueActions(j));
+    const tags = queueTags(j);
+    const tagBox = el.querySelector(".dtags");
+    if (tagBox.dataset.sig !== tags) { tagBox.innerHTML = tags; tagBox.dataset.sig = tags; }
+    // A note next to an error or a finished job ("Готово в MP4", "Конвертую в MP4: 2") adds detail the meta line lacks.
+    const meta = el.querySelector(".dmeta");
+    meta.title = [j.error, j.note].filter(Boolean).join("\n");
+  });
+  $("#jobs-empty").hidden = list.length > 0;
+}
+$("#jobs").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-qact]");
+  if (!b) return;
+  const j = state.jobs.find((x) => x.id === b.closest(".dcard").dataset.id);
+  if (!j) return;
+  const act = b.dataset.qact;
+  try {
+    if (act === "cancel") await api("/api/cancel", { id: j.id });
+    if (act === "retry" || act === "update") {
+      await api("/api/retry", { id: j.id, update: act === "update" });
+      toast(act === "update" ? "Оновлюю yt-dlp, потім повторю завантаження" : "Повторюю");
+    }
+    if (act === "reveal") return openFile(j.files[j.files.length - 1], true);
+    if (act === "mp4") return sendTo("convert", j.files[0]);
+    if (act === "subs") return sendTo("subs", j.files[0]);
+    if (act === "settings") return show("settings");
+    loadJobs();
+  } catch (e) { toast(e.message); }
+});
 $("#clear-btn").addEventListener("click", async () => { await api("/api/clear", {}); loadJobs(); });
 
 // ---------- downloads ----------
@@ -1277,7 +1317,7 @@ function makePicker({ mount, view, probeUrl, describe, filter, emptyPick, onChan
     <div class="card">
       <h3>Файли</h3>
       <div class="dropzone">${ICONS.drop}Перетягни сюди файли або папку з Finder
-        <div class="row"><button class="btn primary" data-role="choose">Обрати з диска…</button></div>
+        <div class="row"><button class="btn" data-role="choose">Обрати з диска…</button></div>
       </div>
       <div data-role="selected"></div>
       <div class="pathrow">
