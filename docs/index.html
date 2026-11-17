@@ -9,46 +9,48 @@
 <meta property="og:description" content="YouTube, Instagram, TikTok і ще 1000+ сайтів. До 8K і HDR, одразу в MP4, субтитри локально. Безкоштовно.">
 <meta property="og:image" content="https://slavashootit.github.io/yt-grab/home.png">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236d8bff'/%3E%3Cstop offset='1' stop-color='%23a46bff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url(%23g)'/%3E%3Cpath d='M32 15v24M21 29l11 11 11-11M19 49h26' fill='none' stroke='white' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff6b4a'/%3E%3Cstop offset='1' stop-color='%23ff6b4a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url(%23g)'/%3E%3Cpath d='M32 15v24M21 29l11 11 11-11M19 49h26' fill='none' stroke='%231a0d08' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
   :root {
-    --bg: #f6f7fa;
+    --bg: #f7f5f2;
     --surface: #ffffff;
-    --surface-2: #eff1f6;
-    --text: #15171c;
-    --muted: #666d7c;
-    --line: #e1e4ec;
-    --accent: #5b78ff;
-    --accent-2: #9a5bff;
-    --accent-soft: rgba(91, 120, 255, 0.13);
-    --ok: #1fa971;
-    --err: #e5484d;
-    --shadow: 0 30px 80px -30px rgba(30, 40, 120, 0.35);
+    --surface-2: #efebe6;
+    --text: #1a1714;
+    --muted: #6b645c;
+    --line: #e4dfd8;
+    --accent: #e5532f;
+    --accent-2: #e5532f;
+    --on-accent: #1a0d08;
+    --accent-soft: rgba(229, 83, 47, 0.12);
+    --ok: #1f8f5c;
+    --err: #d9412b;
+    --shadow: 0 30px 80px -30px rgba(60, 30, 10, 0.32);
     --radius: 16px;
     /* The in-page app demo always uses the app's own dark palette */
-    --app-bg: #131519;
-    --app-side: #0e1013;
-    --app-surface: #1a1d23;
-    --app-surface-2: #22262e;
-    --app-line: #2a2f38;
-    --app-text: #eceef2;
-    --app-muted: #8d95a5;
-    --app-faint: #626a79;
-    --app-accent: #6d8bff;
-    --app-accent-2: #a46bff;
-    --app-ok: #34d399;
+    --app-bg: #141312;
+    --app-side: #100f0e;
+    --app-surface: #1d1c1a;
+    --app-surface-2: #262422;
+    --app-surface-3: #302d2a;
+    --app-line: rgba(255, 255, 255, 0.08);
+    --app-text: #f3efe9;
+    --app-muted: #a29b92;
+    --app-faint: #857e75;
+    --app-accent: #ff6b4a;
+    --app-accent-2: #ff6b4a;
+    --app-ok: #7fd49a;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0c0d11;
-      --surface: #16181e;
-      --surface-2: #1e2129;
-      --text: #eef0f4;
-      --muted: #969cab;
-      --line: #282c36;
-      --accent: #6d8bff;
-      --accent-2: #a46bff;
-      --accent-soft: rgba(109, 139, 255, 0.17);
+      --bg: #121110;
+      --surface: #1b1a18;
+      --surface-2: #23211f;
+      --text: #f3efe9;
+      --muted: #a29b92;
+      --line: #2c2926;
+      --accent: #ff6b4a;
+      --accent-2: #ff6b4a;
+      --accent-soft: rgba(255, 107, 74, 0.14);
       --shadow: 0 30px 90px -30px rgba(0, 0, 0, 0.85);
     }
   }
@@ -79,15 +81,15 @@
   .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; }
   .logo-mark {
     width: 28px; height: 28px; border-radius: 8px; flex: none;
-    background: linear-gradient(135deg, #6d8bff, #a46bff);
-    display: grid; place-items: center; color: #fff;
+    background: var(--accent);
+    display: grid; place-items: center; color: var(--on-accent);
   }
   nav { margin-left: auto; display: flex; gap: 20px; font-size: 14px; color: var(--muted); }
   nav a { text-decoration: none; }
   nav a:hover { color: var(--text); }
   .nav-dl {
     margin-left: auto; display: none; text-decoration: none; font-size: 14px; font-weight: 600;
-    padding: 7px 14px; border-radius: 9px; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    padding: 7px 14px; border-radius: 9px; color: var(--on-accent); background: var(--accent);
   }
   @media (max-width: 760px) { nav { display: none; } .nav-dl { display: inline-block; } }
 
@@ -97,7 +99,7 @@
     content: ""; position: absolute; left: 50%; top: -120px; width: min(1100px, 100%); height: 560px; z-index: -1;
     transform: translateX(-50%);
     background: radial-gradient(closest-side at 40% 50%, var(--accent-soft), transparent 70%),
-                radial-gradient(closest-side at 65% 40%, rgba(164, 107, 255, 0.13), transparent 70%);
+                radial-gradient(closest-side at 65% 40%, rgba(255, 170, 90, 0.10), transparent 70%);
   }
   .badge {
     display: inline-flex; align-items: center; gap: 8px;
@@ -109,22 +111,19 @@
     font-size: clamp(38px, 6.6vw, 70px); line-height: 1.03; letter-spacing: -0.035em;
     margin: 22px auto 16px; max-width: 860px;
   }
-  .grad {
-    background: linear-gradient(90deg, var(--accent), var(--accent-2));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
+  .grad { color: var(--accent); }
   .lead { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 auto; }
 
   .cta { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 34px; }
   .btn {
     display: inline-flex; align-items: center; gap: 10px;
     padding: 14px 26px; border-radius: 12px; font-weight: 600; font-size: 17px;
-    text-decoration: none; color: #fff; border: 0; cursor: pointer;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    box-shadow: 0 10px 30px -10px var(--accent);
-    transition: transform .15s ease, box-shadow .15s ease;
+    text-decoration: none; color: var(--on-accent); border: 0; cursor: pointer;
+    background: var(--accent);
+    transition: transform .15s ease, filter .15s ease;
   }
-  .btn:hover { transform: translateY(-1px); box-shadow: 0 14px 36px -10px var(--accent); }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.06); }
+  .btn:focus-visible, .tab:focus-visible, .copy:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .meta { font-size: 13px; color: var(--muted); }
   .or { font-size: 14px; color: var(--muted); margin-top: 6px; }
 
@@ -134,7 +133,7 @@
     font: 13.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
     display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px;
   }
-  .term .prompt { color: #8ea3ff; user-select: none; }
+  .term .prompt { color: #ffa58f; user-select: none; }
   .term code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
   .term code::-webkit-scrollbar { display: none; }
   .copy {
@@ -151,42 +150,43 @@
   .demo-hint { text-align: center; color: var(--muted); font-size: 14px; margin: 0 0 16px; }
   .win {
     max-width: 980px; margin: 0 auto; border-radius: 14px; overflow: hidden; position: relative;
-    background: var(--app-bg); color: var(--app-text); border: 1px solid #2b2f3a;
+    background: var(--app-bg); color: var(--app-text); border: 1px solid #2a2724;
     box-shadow: var(--shadow); font-size: 14px;
-    display: grid; grid-template-columns: 200px 1fr; height: 560px;
+    display: grid; grid-template-columns: 60px 1fr; height: 560px;
   }
-  .win .side { background: var(--app-side); border-right: 1px solid var(--app-line); padding: 14px 10px; display: flex; flex-direction: column; }
-  .win .lights { display: flex; gap: 7px; padding: 0 6px 16px; }
-  .win .lights i { width: 11px; height: 11px; border-radius: 50%; display: block; }
-  .win .brand { display: flex; align-items: center; gap: 9px; padding: 0 6px 18px; }
+  .win .side { background: var(--app-side); padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .win .lights { display: flex; gap: 5px; padding: 0 0 18px; }
+  .win .lights i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+  .win .brand { display: none; }
   .win .brand .logo-mark { width: 30px; height: 30px; }
   .win .brand b { display: block; font-size: 14px; }
   .win .brand small { color: var(--app-muted); font-size: 11px; }
-  .win h5 { margin: 6px 8px 6px; font-size: 10.5px; letter-spacing: .08em; color: var(--app-faint); }
+  .win h5 { display: none; }
   .win .nav-i {
-    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
-    padding: 7px 10px; border-radius: 8px; color: var(--app-text); font-size: 13.5px;
+    position: relative; display: grid; place-items: center; width: 40px; height: 38px;
+    padding: 0; border-radius: 10px; color: var(--app-muted); font-size: 0;
     background: none; border: 0; cursor: pointer; font-family: inherit;
   }
   .win .nav-i:hover { background: var(--app-surface); }
-  .win .nav-i.on { background: var(--app-surface-2); }
-  .win .nav-i svg { color: var(--app-muted); flex: none; }
-  .win .nav-i.on svg { color: var(--app-accent); }
-  .win .nav-i .n { margin-left: auto; font-size: 11px; background: #2b3346; color: #c9d2ff; border-radius: 999px; padding: 1px 7px; }
-  .win .status { margin-top: auto; padding: 10px 8px 0; border-top: 1px solid var(--app-line); color: var(--app-muted); font-size: 11.5px; display: flex; align-items: center; gap: 7px; }
+  .win .nav-i.on { background: var(--app-surface-2); color: var(--app-text); }
+  .win .nav-i svg { color: inherit; flex: none; width: 18px; height: 18px; }
+  
+  .win .nav-i .n { position: absolute; top: 1px; right: -1px; font-size: 10px; line-height: 16px; min-width: 16px; background: var(--app-accent); color: #1a0d08; border-radius: 999px; padding: 0 4px; font-weight: 700; }
+  .win .nav-i #lib-count { background: var(--app-surface-3); color: var(--app-muted); }
+  .win .status { margin-top: auto; padding: 10px 0 0; font-size: 0; display: flex; justify-content: center; }
   .win .status i { width: 7px; height: 7px; border-radius: 50%; background: var(--app-ok); }
-  .win .main { padding: 34px 32px 24px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #343846 transparent; }
+  .win .main { padding: 22px 24px 24px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #343846 transparent; }
   .win .view { display: none; }
   .win .view.on { display: block; }
   .win .vh { text-align: center; margin-bottom: 18px; }
   .win .vh h3 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.02em; }
-  .win .vh h3 span { background: linear-gradient(90deg, var(--app-accent), var(--app-accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .win .vh h3 span { color: var(--app-accent); }
   .win .vh p { margin: 0; color: var(--app-muted); font-size: 13.5px; }
   .urlbar {
-    display: flex; align-items: center; gap: 8px; max-width: 640px; margin: 0 auto;
-    background: var(--app-surface); border: 1px solid #3a4ea8; border-radius: 12px; padding: 6px 6px 6px 14px;
-    box-shadow: 0 0 0 4px rgba(109, 139, 255, 0.12);
+    display: flex; align-items: center; gap: 8px; margin: 0;
+    background: var(--app-surface); border: 1px solid transparent; border-radius: 12px; padding: 4px 4px 4px 14px;
   }
+  .urlbar:focus-within { border-color: rgba(255, 255, 255, 0.16); }
   .urlbar.shake { animation: shake .35s; border-color: #f87171; box-shadow: 0 0 0 4px rgba(248, 113, 113, .15); }
   @keyframes shake { 25% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
   .urlbar svg { color: var(--app-faint); flex: none; }
@@ -195,16 +195,29 @@
     font: 14px -apple-system, BlinkMacSystemFont, sans-serif; padding: 8px 0;
   }
   .urlbar input::placeholder { color: var(--app-faint); }
-  .a-chip { background: var(--app-surface-2); border: 1px solid var(--app-line); color: var(--app-text); border-radius: 8px; padding: 7px 11px; font: 600 12.5px -apple-system, sans-serif; cursor: pointer; flex: none; }
-  .a-chip:hover { background: #2c313b; }
-  .a-btn { background: linear-gradient(135deg, var(--app-accent), var(--app-accent-2)); color: #fff; border: 0; border-radius: 9px; padding: 9px 16px; font: 700 13.5px -apple-system, sans-serif; cursor: pointer; flex: none; }
+  .a-chip { background: var(--app-surface-2); border: 0; color: var(--app-text); border-radius: 8px; padding: 7px 11px; font: 600 12.5px -apple-system, sans-serif; cursor: pointer; flex: none; }
+  .a-chip:hover { background: var(--app-surface-3); }
+  .a-btn { background: var(--app-accent); color: #1a0d08; border: 0; border-radius: 9px; padding: 9px 16px; font: 700 13.5px -apple-system, sans-serif; cursor: pointer; flex: none; }
   .a-btn:disabled { opacity: .6; cursor: default; }
-  .plats { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 680px; margin: 14px auto 6px; }
-  .plat { border: 1px solid var(--app-line); background: var(--app-surface); color: var(--app-muted); border-radius: 999px; padding: 4px 11px; font-size: 12px; cursor: pointer; font-family: inherit; }
-  .plat:hover { color: var(--app-text); border-color: #3a414d; }
-  .plat.hit { color: #fff; border-color: var(--app-accent); background: rgba(109, 139, 255, .18); }
-  .more { text-align: center; color: var(--app-faint); font-size: 12px; }
-  .res { max-width: 640px; margin: 20px auto 0; }
+  .plats { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 6px; }
+  .plat { border: 1px solid transparent; background: var(--app-surface); color: var(--app-muted); border-radius: 999px; padding: 4px 11px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .plat:hover { color: var(--app-text); }
+  .plat.hit { color: var(--app-text); border-color: var(--app-accent); background: rgba(255, 107, 74, .14); }
+  .more { color: var(--app-faint); font-size: 12px; }
+  .res { margin: 16px 0 0; }
+  .hero-c { position: relative; height: 270px; border-radius: 12px; overflow: hidden; background: #262422 center / cover no-repeat; animation: rise .35s ease; }
+  .hero-c::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(20, 19, 18, .92)); }
+  .hero-c .cap { position: absolute; left: 16px; right: 16px; bottom: 12px; z-index: 1; display: flex; align-items: flex-end; gap: 12px; }
+  .hero-c .cap b { display: block; font-size: 17px; line-height: 1.25; }
+  .hero-c .cap span { color: rgba(243, 239, 233, .8); font-size: 12.5px; }
+  .hero-c .cap .dur { margin-left: auto; flex: none; background: rgba(0, 0, 0, .65); color: #fff; padding: 1px 7px; border-radius: 6px; font-weight: 600; font-size: 12px; }
+  .pick { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--app-surface); }
+  .seg button { border: 0; background: none; color: var(--app-muted); font: 600 12.5px -apple-system, sans-serif; padding: 7px 11px; border-radius: 8px; cursor: pointer; }
+  .seg button:hover { color: var(--app-text); }
+  .seg button.on { background: var(--app-surface-3); color: var(--app-text); }
+  .psize { color: var(--app-muted); font-size: 12.5px; }
+  .pick .go { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; }
   .vcard { display: flex; gap: 14px; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 12px; padding: 12px; animation: rise .3s ease; }
   @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
   .thumb { width: 168px; aspect-ratio: 16/9; border-radius: 8px; flex: none; position: relative; display: grid; place-items: center; overflow: hidden; background: #1a1d23 center / cover no-repeat; }
@@ -221,13 +234,13 @@
     background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; padding: 10px 12px; text-align: left;
     color: var(--app-text); cursor: pointer; font-family: inherit; transition: border-color .15s, background .15s;
   }
-  .q:hover { border-color: var(--app-accent); background: #1e2230; }
+  .q:hover { border-color: var(--app-accent); background: #2a2522; }
   .q b { display: block; font-size: 14px; }
   .q span { color: var(--app-muted); font-size: 11.5px; }
-  .q.best { border-color: #3a4ea8; background: rgba(109, 139, 255, .09); }
+  .q.best { border-color: var(--app-accent); background: rgba(255, 107, 74, .09); }
   .opts { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--app-muted); font-size: 12.5px; }
   .tick { width: 15px; height: 15px; border-radius: 4px; background: var(--app-accent); display: grid; place-items: center; }
-  .job { display: flex; gap: 12px; align-items: center; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 12px; padding: 12px; margin-bottom: 10px; animation: rise .3s ease; }
+  .job { display: flex; gap: 12px; align-items: center; background: var(--app-surface); border: 0; border-radius: 12px; padding: 12px; margin-bottom: 10px; animation: rise .3s ease; }
   .job .thumb { width: 96px; }
   .job .thumb.vert { width: 44px; }
   .job .jb { flex: 1; min-width: 0; }
@@ -235,21 +248,21 @@
   .job .js { color: var(--app-muted); font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .job .js.ok { color: var(--app-ok); }
   .bar { height: 5px; background: var(--app-surface-2); border-radius: 99px; margin-top: 8px; overflow: hidden; }
-  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--app-accent), var(--app-accent-2)); border-radius: 99px; transition: width .2s linear; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--app-accent); border-radius: 99px; transition: width .2s linear; }
   .job.done .bar i { background: var(--app-ok); }
   .job .acts { display: flex; gap: 6px; flex: none; }
   .empty-q { text-align: center; color: var(--app-faint); padding: 70px 0; font-size: 13.5px; }
   .lib { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-  .lib .it { background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; overflow: hidden; animation: rise .3s ease; }
+  .lib .it { background: var(--app-surface); border: 0; border-radius: 10px; overflow: hidden; animation: rise .3s ease; }
   .lib .it .thumb { width: 100%; border-radius: 0; }
   .lib .it div.t { padding: 8px 10px; font-size: 12.5px; }
   .lib .it div.t span { display: block; color: var(--app-muted); font-size: 11px; margin-top: 2px; }
   .tool-view { max-width: 560px; margin: 0 auto; }
-  .drop { border: 1.5px dashed #3a414d; border-radius: 12px; padding: 34px 16px; text-align: center; color: var(--app-muted); font-size: 13.5px; }
+  .drop { border: 1.5px dashed rgba(255, 255, 255, .16); border-radius: 12px; padding: 34px 16px; text-align: center; color: var(--app-muted); font-size: 13.5px; }
   .drop b { color: var(--app-text); display: block; margin-bottom: 4px; font-size: 14.5px; }
-  .preset { display: block; background: var(--app-surface); border: 1px solid var(--app-line); border-radius: 10px; padding: 10px 12px; margin-top: 8px; font-size: 13px; color: var(--app-muted); }
+  .preset { display: block; background: var(--app-surface-2); border: 1px solid transparent; border-radius: 10px; padding: 10px 12px; margin-top: 8px; font-size: 13px; color: var(--app-muted); }
   .preset b { color: var(--app-text); margin-right: 6px; }
-  .preset.on { border-color: #3a4ea8; background: rgba(109, 139, 255, .09); }
+  .preset.on { border-color: var(--app-accent); background: rgba(255, 107, 74, .09); }
   .toast {
     position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 20px);
     background: #f2f3f7; color: #15171c; padding: 9px 16px; border-radius: 10px; font-weight: 600;
@@ -257,10 +270,12 @@
   }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
   @media (max-width: 760px) {
-    .win { grid-template-columns: 1fr; height: 540px; }
+    .win { grid-template-columns: 1fr; height: auto; min-height: 540px; }
     .win .side { display: none; }
     .win .main { padding: 22px 14px 18px; }
     .win .vh h3 { font-size: 24px; }
+    .hero-c { height: 190px; }
+    .pick .go { margin-left: 0; }
     .urlbar { flex-wrap: wrap; padding: 8px; }
     .urlbar > svg { display: none; }
     .urlbar input { flex-basis: 100%; padding: 4px 4px 8px; }
@@ -300,7 +315,7 @@
     border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 999px;
     padding: 8px 16px; font: 600 14px -apple-system, sans-serif; cursor: pointer;
   }
-  .tab.on { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+  .tab.on { color: var(--on-accent); border-color: transparent; background: var(--accent); }
   .frame { max-width: 980px; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: #131519; }
   .frame img { width: 100%; height: auto; aspect-ratio: 16/10; }
   .shot-cap { text-align: center; color: var(--muted); font-size: 14.5px; margin: 16px auto 0; max-width: 620px; min-height: 2.6em; }
@@ -380,7 +395,7 @@
     <div class="wrap">
       <span class="badge"><span class="dot"></span><span id="version">Безкоштовно · macOS 12+</span></span>
       <h1>Качай відео звідусіль. <span class="grad">Без лімітів і реклами.</span></h1>
-      <p class="lead">YouTube, Instagram, TikTok, Facebook, X, Vimeo і ще понад тисяча сайтів. До 8K і HDR, одразу в MP4, плейлисти й цілі канали. А ще субтитри й підсумок розмови прямо на твоєму Маці.</p>
+      <p class="lead">YouTube, Instagram, TikTok, Threads, X, Vimeo і ще понад тисяча сайтів. До 8K і HDR, одразу в MP4, плейлисти, цілі канали й шматок відео за таймкодами. А ще субтитри й підсумок розмови прямо на твоєму Маці.</p>
 
       <div class="cta">
         <a class="btn" href="https://github.com/slavashootit/yt-grab/releases/latest/download/YT-Grab.dmg">
@@ -400,7 +415,7 @@
 
   <section class="demo-section" id="demo">
     <div class="wrap">
-      <p class="demo-hint">Спробуй прямо тут: тисни «Вставити» або клікни платформу, потім «Отримати» й обери якість</p>
+      <p class="demo-hint">Спробуй прямо тут: тисни «Вставити» або клікни платформу, потім «Отримати», обери якість і «Завантажити»</p>
       <div class="win" id="win">
         <aside class="side">
           <div class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
@@ -409,17 +424,16 @@
             <div><b>YT Grab</b><small>без лімітів</small></div>
           </div>
           <h5>МЕДІА</h5>
-          <button class="nav-i on" data-view="home"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Завантажити</button>
-          <button class="nav-i" data-view="queue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h7M17 14v7M14 18l3 3 3-3"/></svg>Черга<span class="n" id="q-count" hidden>0</span></button>
-          <button class="nav-i" data-view="lib"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Завантажене<span class="n" id="lib-count">3</span></button>
+          <button class="nav-i on" data-view="home" title="Завантажити" aria-label="Завантажити"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Завантажити</button>
+          <button class="nav-i" data-view="queue" title="Черга" aria-label="Черга"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h7M17 14v7M14 18l3 3 3-3"/></svg>Черга<span class="n" id="q-count" hidden>0</span></button>
+          <button class="nav-i" data-view="lib" title="Завантажене" aria-label="Завантажене"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Завантажене<span class="n" id="lib-count">3</span></button>
           <h5 style="margin-top:14px">ІНСТРУМЕНТИ</h5>
-          <button class="nav-i" data-view="conv"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>Конвертер</button>
-          <button class="nav-i" data-view="subs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 11h4M13 11h4M7 15h10"/></svg>Субтитри</button>
+          <button class="nav-i" data-view="conv" title="Конвертер" aria-label="Конвертер"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>Конвертер</button>
+          <button class="nav-i" data-view="subs" title="Субтитри" aria-label="Субтитри"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 11h4M13 11h4M7 15h10"/></svg>Субтитри</button>
           <div class="status"><i></i>Усе готово</div>
         </aside>
         <div class="main" id="app-main">
           <div class="view on" data-v="home">
-            <div class="vh"><h3>Що <span>качаємо</span>?</h3><p>Відео, плейлист, цілий канал або пост з фото у найкращій якості</p></div>
             <form class="urlbar" id="urlbar">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
               <input id="url" placeholder="Встав посилання на відео, плейлист, канал або пост" autocomplete="off" spellcheck="false">
@@ -472,6 +486,7 @@
         <span><i style="background:linear-gradient(135deg,#25f4ee,#fe2c55)"></i>TikTok</span>
         <span><i style="background:#1877f2"></i>Facebook</span>
         <span><i style="background:#888"></i>X</span>
+        <span><i style="background:#444"></i>Threads</span>
         <span><i style="background:#1ab7ea"></i>Vimeo</span>
         <span><i style="background:#9146ff"></i>Twitch</span>
         <span><i style="background:#ff5500"></i>SoundCloud</span>
@@ -490,9 +505,12 @@
       <div class="grid">
         <div class="card"><div class="emoji">🎬</div><h3>Найкраща якість</h3><p>Аж до 8K і HDR. Будь-яка якість на вибір або лише звук у MP3 320 kbps.</p></div>
         <div class="card"><div class="emoji">⚡️</div><h3>Одразу в MP4</h3><p>H.264, а для 4K/8K і HDR HEVC. Якщо відео вже в H.264/HEVC, просто перепаковує без втрат.</p></div>
+        <div class="card"><div class="emoji">✂️</div><h3>Шматок за таймкодами</h3><p>«З 12:30 до 14:05», і качається тільки цей відрізок, з точним різом. Не треба тягнути дві години заради хвилини.</p></div>
+        <div class="card"><div class="emoji">📎</div><h3>Посилання з буфера</h3><p>Скопіював посилання, повернувся в YT Grab, і прев'ю вже на екрані. Якість запам'ятовується для кожного сайту.</p></div>
+        <div class="card"><div class="emoji">🔁</div><h3>Черга, що не губиться</h3><p>Переживає перезапуск, має «Повторити» на помилках, показує стан словами й надсилає сповіщення, коли все готово.</p></div>
         <div class="card"><div class="emoji">📚</div><h3>Плейлисти й канали</h3><p>Цілком або лише за період: 7 днів, місяць чи свої дати. Повторний запуск докачує лише нові відео.</p></div>
         <div class="card"><div class="emoji">📅</div><h3>Профіль Instagram за період</h3><p>Встав профіль, обери рілси чи всі пости й дати, і YT Grab скачає все за цей час. Закріплені пропускає.</p></div>
-        <div class="card"><div class="emoji">🖼</div><h3>Фото-пости</h3><p>Каруселі Instagram і слайдшоу TikTok разом з музикою.</p></div>
+        <div class="card"><div class="emoji">🖼</div><h3>Фото-пости</h3><p>Каруселі Instagram, слайдшоу TikTok разом з музикою й фото-пости Threads.</p></div>
         <div class="card"><div class="emoji">📋</div><h3>Пачка посилань</h3><p>YouTube, Instagram, TikTok упереміш: встав списком або скинь <code class="i">.txt</code>. Повтори й фото-пости розбирає сам.</p></div>
         <div class="card"><div class="emoji">🔄</div><h3>Конвертер у MP4</h3><p>Перетягни файли чи цілу папку з Finder. H.264 для будь-яких програм, HEVC для 4K і HDR.</p></div>
         <div class="card"><div class="emoji">💬</div><h3>Субтитри з відео</h3><p>Video → SRT локально через NVIDIA Parakeet або Whisper, чи через Groq. Десятки мов.</p></div>
@@ -577,7 +595,8 @@
       <p class="sublead">Коротко про те, що зазвичай питають.</p>
       <div class="faq-list">
         <details><summary>Це справді безкоштовно?</summary><p>Так. Без підписок, лімітів, реклами й водяних знаків. Код відкритий під ліцензією MIT.</p></details>
-        <details><summary>Щось перестало качати. Що робити?</summary><p>Налаштування → «Оновити компоненти». Сайти часто змінюються, і свіжий yt-dlp лікує більшість проблем. Журнал роботи лежить у <code class="i">~/.ytgrab/app.log</code>.</p></details>
+        <details><summary>Щось перестало качати. Що робити?</summary><p>Натисни «Повторити» на картці в Черзі. Якщо помилка схожа на застарілий yt-dlp, там буде «Оновити yt-dlp і повторити». YT Grab і сам оновлює yt-dlp раз на добу, а вручну це робить Налаштування → «Оновити компоненти». Журнал роботи лежить у <code class="i">~/.ytgrab/app.log</code>.</p></details>
+        <details><summary>Як оновити сам YT Grab?</summary><p>Раз на добу YT Grab дивиться, чи вийшла нова версія. Коли вийде, у Налаштуваннях з'явиться кнопка «Оновити YT Grab», а на іконці налаштувань крапка. Або просто ще раз виконай команду з Терміналу вгорі сторінки.</p></details>
         <details><summary>Як скачати рілси з профілю за місяць?</summary><p>Встав посилання на профіль Instagram, наприклад <code class="i">instagram.com/назва_профілю</code>, обери «Рілси» й період і натисни «Скачати». Instagram показує профілі лише після входу, тому в Налаштуваннях має бути обраний браузер у «Cookies з браузера». Беруться до 100 останніх постів.</p></details>
         <details><summary>Instagram, Facebook чи X просять увійти</summary><p>У Налаштуваннях обери браузер, у якому ти залогінений (Cookies з браузера). Так само качаються відео 18+ і приватні плейлисти.</p></details>
         <details><summary>Які Маки підтримуються?</summary><p>macOS 12 і новіші, Apple Silicon і Intel. Локальний підсумок розмови працює на Маках з чипом Apple, на Intel його робить Groq.</p></details>
@@ -659,9 +678,9 @@
 
   // Screenshot tabs
   const shots = [
-    ["home.png", "Головна: встав посилання, і YT Grab сам розбереться, відео це, плейлист, канал чи пост з фото."],
-    ["queue.png", "Черга: завантаження, конвертація й субтитри йдуть паралельно, а готове можна одразу відправити в субтитри."],
-    ["library.png", "Завантажене: усі файли з пошуком за назвою, кожна платформа й канал у своїй папці."],
+    ["home.png", "Головна: скопіюй посилання, і YT Grab сам покаже прев'ю. Якість одним перемикачем, черга з прогресом поруч."],
+    ["queue.png", "Черга: прогрес рамкою довкола прев'ю, стан словами, «Повторити» на помилках. Не губиться після перезапуску."],
+    ["library.png", "Завантажене: усі файли з мініатюрами й пошуком, кожна платформа й канал у своїй папці."],
     ["converter.png", "Конвертер: H.264 для будь-яких програм, HEVC для 4K/8K і HDR, або швидке перепакування без втрат."],
     ["subtitles.png", "Субтитри: Video → SRT локально через Parakeet чи Whisper, плюс підсумок розмови в .md."],
   ];
@@ -725,7 +744,7 @@
   let pasteIdx = 0;
 
   function detect(url) {
-    const p = platforms.find(p => p.re.test(url)) || { id: "other", name: "Сайт", color: "#6d8bff" };
+    const p = platforms.find(p => p.re.test(url)) || { id: "other", name: "Сайт", color: "#ff6b4a" };
     let kind = "video";
     if (p.id === "soundcloud") kind = "audio";
     else if (/[?&]list=|\/playlist|\/@[^/]+\/?$|\/channel\//i.test(url) && p.id === "youtube") kind = "playlist";
@@ -791,36 +810,31 @@
     }, 650);
   }
 
+  let demoChoice = null;
   function renderResult(info) {
     const d = info.d;
-    let cards = "";
-    if (info.kind === "photos") {
-      cards = `<button class="q best" data-q="photos"><b>Усі фото</b><span>${d.n} шт.${info.p.id === "tiktok" ? " + MP3" : ", оригінал"}</span></button>`;
-    } else if (info.kind === "audio") {
-      cards = `<button class="q best" data-q="mp3"><b>MP3</b><span>320 kbps</span></button>`;
-    } else {
+    let opts;
+    if (info.kind === "photos") opts = [["photos", `Усі фото · ${d.n}`]];
+    else if (info.kind === "audio") opts = [["mp3", "MP3 320 kbps"]];
+    else {
       const max = d.max || 1080;
-      const list = qualities.filter(([h]) => h <= max);
-      if (info.kind === "playlist") {
-        cards = `<button class="q best" data-q="best"><b>Усе в найкращій</b><span>24 відео</span></button>` +
-          list.filter(([h]) => h <= 2160 && h >= 1080).map(([h, l]) => `<button class="q" data-q="${h}"><b>До ${l}</b><span>24 відео</span></button>`).join("");
-      } else {
-        cards = list.map(([h, l, s], i) => `<button class="q ${i === 0 ? "best" : ""}" data-q="${h}"><b>${l}</b><span>${i === 0 && h >= 2160 ? "найкраща · " : ""}${h >= 2160 ? s : "MP4 · H.264"}</span></button>`).join("");
-      }
-      cards += `<button class="q" data-q="mp3"><b>Лише звук</b><span>MP3 320 kbps</span></button>`;
+      opts = qualities.filter(([h]) => h <= max).map(([h, l]) => [String(h), info.kind === "playlist" ? "До " + l : l]);
+      if (info.kind === "playlist") opts.unshift(["best", "Найкраща"]);
+      opts.push(["mp3", "Звук"]);
     }
+    demoChoice = opts[0][0];
+    const go = info.kind === "playlist" ? "Завантажити все" : info.kind === "photos" ? "Скачати фото" : "Завантажити";
     const opt = info.kind === "video" || info.kind === "playlist"
-      ? `<div class="opts"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>Одразу в MP4${info.kind === "playlist" ? " · повторний запуск докачає лише нові" : ""}</div>` : "";
+      ? `<div class="opts"><span class="tick"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1a0d08" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>Одразу в MP4${info.kind === "playlist" ? " · повторний запуск докачає лише нові" : " · або «Лише шматок» за таймкодами"}</div>` : "";
     res.innerHTML = `
-      <div class="vcard">
-        ${thumbHTML(info.p.color, info, info.vertical)}
-        <div class="vinfo">
-          <div class="pl"><i style="background:${info.p.color}"></i>${esc(d.meta)}</div>
-          <b>${esc(d.title)}</b>
-          <span>${esc(d.by)}</span>
-        </div>
+      <div class="hero-c" style="background-image:url(thumbs/${d.img})">
+        <div class="cap"><div><b>${esc(d.title)}</b><span>${esc(info.p.id === "other" ? "" : info.p.name + " · ")}${esc(d.by)}</span></div><span class="dur">${esc(d.dur)}</span></div>
       </div>
-      <div class="qgrid">${cards}</div>${opt}`;
+      <div class="pick">
+        <div class="seg" role="radiogroup" aria-label="Якість">${opts.map(([q, l], i) => `<button type="button" role="radio" aria-checked="${i === 0}" data-c="${q}" class="${i === 0 ? "on" : ""}">${esc(l)}</button>`).join("")}</div>
+        <span class="psize">${esc(d.meta)}</span>
+        <button class="a-btn go" type="button" data-go><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>${go}</button>
+      </div>${opt}`;
   }
 
   // Queue simulation
@@ -940,8 +954,13 @@
     fetchInfo();
   });
   res.addEventListener("click", e => {
-    const b = e.target.closest(".q");
-    if (b && current) startJob(b.dataset.q);
+    const c = e.target.closest("[data-c]");
+    if (c) {
+      demoChoice = c.dataset.c;
+      res.querySelectorAll("[data-c]").forEach(x => { x.classList.toggle("on", x === c); x.setAttribute("aria-checked", x === c); });
+      return;
+    }
+    if (e.target.closest("[data-go]") && current) startJob(demoChoice);
   });
   document.querySelector(".win .side").addEventListener("click", e => {
     const b = e.target.closest(".nav-i");

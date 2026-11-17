@@ -1261,6 +1261,7 @@ function updateDockCard(el, j, compact, actions) {
   if (box.dataset.sig !== acts) { box.innerHTML = acts; box.dataset.sig = acts; }
 }
 function renderDock(list) {
+  list = list.filter((j) => !j.auto);
   const box = $("#dock-list");
   const live = list.filter((j) => j.status === "running" || j.status === "queued" || j.converting);
   const items = [...live, ...list.filter((j) => !live.includes(j))].slice(0, 6);
@@ -1317,6 +1318,7 @@ function queueTags(j) {
   return tags.map((t) => `<span class="tag">${t}</span>`).join("");
 }
 function renderQueue(list) {
+  list = list.filter((j) => !j.auto);
   const box = $("#jobs");
   const keep = new Set(list.map((j) => j.id));
   for (const [id, el] of queueCards) if (!keep.has(id)) { el.remove(); queueCards.delete(id); }

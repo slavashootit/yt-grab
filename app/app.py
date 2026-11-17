@@ -563,7 +563,7 @@ class Job:
             "percent": self.percent if finished else 0.0, "current": self.current if finished else "",
             "error": self.error, "note": self.note, "files": list(self.files), "created": self.created,
             "date_from": self.date_from, "date_to": self.date_to, "interrupted": self.interrupted,
-            "thumbnail": self.thumbnail, "section": self.section,
+            "thumbnail": self.thumbnail, "section": self.section, "auto": self.is_auto(),
         }
         for key in ("preset", "res", "engine", "language", "want_txt", "want_summary", "platform"):
             if hasattr(self, key):
@@ -585,6 +585,7 @@ class Job:
         job.created = float(data.get("created") or job.created)
         job.date_from, job.date_to = str(data.get("date_from") or ""), str(data.get("date_to") or "")
         job.thumbnail = clean_thumbnail(data.get("thumbnail"))
+        job.restored_auto = bool(data.get("auto"))
         section = data.get("section")
         if isinstance(section, list) and len(section) == 2:
             job.section = [float(section[0]), float(section[1])]
@@ -596,6 +597,9 @@ class Job:
             job.note = ("Перервано: YT Grab закрили. «Повторити» докачає з того ж місця." if job.kind == "download"
                         else "Перервано: YT Grab закрили.")
         return job
+
+    def is_auto(self) -> bool:
+        return self.parent is not None or getattr(self, "restored_auto", False)
 
     def can_retry(self) -> bool:
         if self.kind not in RETRY_KINDS or self.status not in ("error", "cancelled"):
@@ -611,6 +615,7 @@ class Job:
     def to_json(self) -> dict:
         return {
             "retry": self.can_retry(), "thumbnail": self.thumbnail, "phase": self.phase, "section": self.section,
+            "auto": self.is_auto(),  # automatic MP4 conversion: its download card already shows it
             "id": self.id, "kind": self.kind, "note": self.note, "url": self.url, "mp4": self.mp4, "title": self.title, "quality": self.quality,
             "status": self.status, "percent": self.percent, "speed": self.speed,
             "eta": self.eta, "item": self.item, "current": self.current, "error": self.error,
