@@ -84,6 +84,12 @@ DEST="/Applications"
 [ -w "$DEST" ] || DEST="$HOME/Applications"
 mkdir -p "$DEST"
 osascript -e 'tell application id "app.ytgrab.mac" to quit' >/dev/null 2>&1 || true
+# Quitting is asynchronous: opening the new copy while the old one is still closing just brings the
+# closing one forward, and nothing is left running. Wait (up to 15 s) until it is gone.
+for _ in $(seq 1 50); do
+  pgrep -f "YT Grab.app/Contents/MacOS/YTGrab" >/dev/null 2>&1 || break
+  sleep 0.3
+done
 rm -rf "$DEST/YT Grab.app"
 cp -R "$APP" "$DEST/"
 echo "Готово: $DEST/YT Grab.app"
