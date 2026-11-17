@@ -6,8 +6,10 @@ Standard library only; needs yt-dlp, ffmpeg and (for YouTube) deno on PATH.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import plistlib
 import re
 import shutil
 import signal
@@ -31,6 +33,7 @@ import photos
 import sites
 import summarize
 import summary_prompts
+import threads_photos
 import transcribe
 
 APP_DIR = Path(__file__).resolve().parent
@@ -368,6 +371,11 @@ def describe_playlist(info: dict) -> dict:
 
 
 def fetch_photos(url: str, cfg: dict) -> dict | None:
+    if threads_photos.POST_URL.match(url):
+        try:
+            return threads_photos.probe(url)
+        except (OSError, ValueError) as exc:
+            raise ValueError(sites.friendly_error(str(exc), url) or str(exc))
     binary = photos.gallery_bin(VENV_DIR)
     if not binary:
         return None
@@ -428,8 +436,9 @@ def fetch_info(url: str) -> dict:
         result["more"] = result["count"] >= TIKTOK_PREVIEW
     result["platform"] = platform_name or info.get("extractor_key")
     # Instagram carousels can mix photos and videos; yt-dlp sees only the videos.
-    result["can_photos"] = (platform_name == "Instagram" and result["kind"] == "playlist"
-                            and photos.gallery_bin(VENV_DIR) is not None)
+    result["can_photos"] = result["kind"] == "playlist" and (
+        (platform_name == "Instagram" and photos.gallery_bin(VENV_DIR) is not None)
+        or bool(threads_photos.POST_URL.match(url)))
     return result
 
 
@@ -439,13 +448,45 @@ def last_error_line(text: str) -> str:
     return (errors or lines or [""])[-1][:400]
 
 
+def parse_clock(value) -> float:
+    """ "12:30", "1:02:03", "95" or "1:05.5" -> seconds."""
+    text = str(value or "").strip().replace(",", ".")
+    if not re.fullmatch(r"\d+(?::\d{1,2}){0,2}(?:\.\d+)?", text):
+        raise ValueError("Час пиши як хв:сек, наприклад 12:30 або 1:02:03")
+    seconds = 0.0
+    for part in text.split(":"):
+        seconds = seconds * 60 + float(part)
+    return seconds
+
+
+def clock_label(seconds: float) -> str:
+    """12.30 / 1.02.03: colons are not allowed in Finder file names."""
+    whole = int(seconds)
+    h, m, s = whole // 3600, whole % 3600 // 60, whole % 60
+    return f"{h}.{m:02d}.{s:02d}" if h else f"{m}.{s:02d}"
+
+
+def parse_section(data: dict) -> list[float] | None:
+    if not (str(data.get("section_from") or "").strip() or str(data.get("section_to") or "").strip()):
+        return None
+    start = parse_clock(data.get("section_from") or "0")
+    end = parse_clock(data.get("section_to"))
+    if end - start < 1:
+        raise ValueError("Кінець шматка має бути хоча б на секунду пізніше за початок")
+    return [start, end]
+
+
 def build_download_cmd(url: str, quality: str, use_archive: bool, cfg: dict, files_log: str,
-                       date_from: str = "", date_to: str = "") -> list[str]:
+                       date_from: str = "", date_to: str = "", section: list[float] | None = None) -> list[str]:
     out_dir = cfg["out_dir"]
+    template = sites.output_template(url)
+    if section:
+        # "… [id] фрагмент 12.30–14.05.1080p.mkv" never collides with the full video.
+        template = template.replace(" [%(id)s].", f" [%(id)s] фрагмент {clock_label(section[0])}–{clock_label(section[1])}.")
     cmd = [
         ytdlp_bin(), *PLUGIN_ARGS, "--newline", "--no-colors", "--ignore-errors", "--no-overwrites",
         "--embed-metadata", "--embed-chapters", "--concurrent-fragments", "4",
-        "--paths", out_dir, "--output", sites.output_template(url),
+        "--paths", out_dir, "--output", template,
         "--progress-template", PROGRESS_TEMPLATE,
         "--print-to-file", "after_move:filepath", files_log,
         *cookie_args(cfg, url),
@@ -466,6 +507,9 @@ def build_download_cmd(url: str, quality: str, use_archive: bool, cfg: dict, fil
             height = int(quality)
             cmd += ["--format", f"bv*[height<={height}]+ba/b[height<={height}]/bv*+ba/b"]
         cmd += ["--merge-output-format", "mkv"]
+    if section:
+        # Cut exactly at the given seconds (re-encodes the edges), not at the nearest keyframe.
+        cmd += ["--download-sections", f"*{section[0]:.2f}-{section[1]:.2f}", "--force-keyframes-at-cuts"]
     return cmd + url_args(url)
 
 
@@ -507,6 +551,7 @@ class Job:
         self.thumbnail = ""  # preview image for the queue card
         self.phase = ""  # what is happening right now, in words: "читаю сторінку", "зводжу відео й звук"…
         self.streams = 1  # separate files yt-dlp fetches for one video (video + audio = 2)
+        self.section: list[float] | None = None  # [start, end] seconds: download only this clip
         self.stream = 0  # which of them is downloading now
 
     def to_disk(self) -> dict:
@@ -518,7 +563,7 @@ class Job:
             "percent": self.percent if finished else 0.0, "current": self.current if finished else "",
             "error": self.error, "note": self.note, "files": list(self.files), "created": self.created,
             "date_from": self.date_from, "date_to": self.date_to, "interrupted": self.interrupted,
-            "thumbnail": self.thumbnail,
+            "thumbnail": self.thumbnail, "section": self.section,
         }
         for key in ("preset", "res", "engine", "language", "want_txt", "want_summary", "platform"):
             if hasattr(self, key):
@@ -540,6 +585,9 @@ class Job:
         job.created = float(data.get("created") or job.created)
         job.date_from, job.date_to = str(data.get("date_from") or ""), str(data.get("date_to") or "")
         job.thumbnail = clean_thumbnail(data.get("thumbnail"))
+        section = data.get("section")
+        if isinstance(section, list) and len(section) == 2:
+            job.section = [float(section[0]), float(section[1])]
         for key in ("preset", "res", "engine", "language", "want_txt", "want_summary", "platform", "info"):
             if key in data:
                 setattr(job, key, data[key])
@@ -562,7 +610,7 @@ class Job:
 
     def to_json(self) -> dict:
         return {
-            "retry": self.can_retry(), "thumbnail": self.thumbnail, "phase": self.phase,
+            "retry": self.can_retry(), "thumbnail": self.thumbnail, "phase": self.phase, "section": self.section,
             "id": self.id, "kind": self.kind, "note": self.note, "url": self.url, "mp4": self.mp4, "title": self.title, "quality": self.quality,
             "status": self.status, "percent": self.percent, "speed": self.speed,
             "eta": self.eta, "item": self.item, "current": self.current, "error": self.error,
@@ -631,7 +679,8 @@ def run_job(job: Job) -> None:
         try:
             if sites.PHOTO_POST.search(job.url) and photos.gallery_bin(VENV_DIR):
                 return switch_to_photos(job, cfg)
-            cmd = build_download_cmd(job.url, job.quality, job.use_archive, cfg, files_log, job.date_from, job.date_to)
+            cmd = build_download_cmd(job.url, job.quality, job.use_archive, cfg, files_log, job.date_from, job.date_to,
+                                     job.section)
             job.status, job.phase = "running", "читаю сторінку"
             job.proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
@@ -661,7 +710,8 @@ def run_job(job: Job) -> None:
                 job.status, job.percent = "done", 100.0
                 job.error = "Частину відео пропущено: " + sites.friendly_error(
                     last_error_line("\n".join(tail)), job.url, cfg.get("cookies_browser", ""))
-            elif photos.NO_VIDEO.search(last_error_line("\n".join(tail))) and photos.gallery_bin(VENV_DIR):
+            elif photos.NO_VIDEO.search(last_error_line("\n".join(tail))) and (
+                    photos.gallery_bin(VENV_DIR) or threads_photos.POST_URL.match(job.url)):
                 # A post with photos only (or a carousel yt-dlp cannot read): let gallery-dl take it.
                 job.proc = None
                 switch_to_photos(job, cfg, last_error_line("\n".join(tail)))
@@ -700,16 +750,17 @@ def queue_mp4(job: Job, cfg: dict) -> None:
 
 
 def start_job(url: str, title: str, quality: str, use_archive: bool, mp4: bool = False,
-              date_from: str = "", date_to: str = "") -> Job:
+              date_from: str = "", date_to: str = "", section: list[float] | None = None) -> Job:
     if quality not in ("best", "audio") and not str(quality).isdigit():
         raise ValueError("Невідома якість")
     job = Job(url, title, str(quality), use_archive)
     job.mp4 = mp4 and quality != "audio"
     job.date_from, job.date_to = date_from, date_to
+    job.section = section
     with jobs_lock:
         # Two identical jobs would race for the same output file.
         for other in jobs.values():
-            if (other.status in ("queued", "running") and other.url == url
+            if (other.status in ("queued", "running") and other.url == url and other.section == job.section
                     and other.quality == job.quality and other.kind in ("download", "photos")):
                 raise ValueError("Це вже качається")
         jobs[job.id] = job
@@ -989,6 +1040,55 @@ def ytdlp_outdated() -> str | None:
     return latest if latest and version_tuple(latest) > version_tuple(info["version"]) else None
 
 
+APP_RELEASE_API = "https://api.github.com/repos/slavashootit/yt-grab/releases/latest"
+APP_INSTALLER = "https://raw.githubusercontent.com/slavashootit/yt-grab/main/install.sh"
+
+
+def app_version() -> str | None:
+    """CFBundleShortVersionString of the running app (Contents/Resources/ytgrab -> Contents/Info.plist)."""
+    # Inside the app bundle, or macos/Info.plist when run straight from the repository.
+    for plist in (APP_DIR.parent.parent / "Info.plist", APP_DIR.parent / "macos" / "Info.plist"):
+        try:
+            with open(plist, "rb") as f:
+                return str(plistlib.load(f).get("CFBundleShortVersionString") or "") or None
+        except (OSError, ValueError, plistlib.InvalidFileException):
+            continue
+    return None
+
+
+def check_app_release() -> None:
+    """Newest release on GitHub; asked at most once in 20 hours, the answer is kept in state.json."""
+    if time.time() - float(read_state().get("app_checked") or 0) < 20 * 3600:
+        return
+    req = urllib.request.Request(APP_RELEASE_API, headers={"Accept": "application/vnd.github+json", "User-Agent": "YT-Grab"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.load(resp)
+        write_state(app_checked=time.time(), app_latest=str(data.get("tag_name") or "").lstrip("v"),
+                    app_url=str(data.get("html_url") or ""))
+    except Exception:  # offline or rate-limited: try again on the next round
+        pass
+
+
+def app_update() -> dict | None:
+    """{"version", "url"} when GitHub has a newer YT Grab than this one (from the cached check only)."""
+    state, current = read_state(), app_version()
+    latest = state.get("app_latest")
+    if current and latest and version_tuple(latest) > version_tuple(current):
+        return {"version": latest, "url": state.get("app_url") or ""}
+    return None
+
+
+def start_app_update() -> None:
+    if not app_update():
+        raise ValueError("Новішої версії немає")
+    if active_jobs():
+        raise ValueError("Зачекай, поки черга завершиться: оновлення перезапустить YT Grab")
+    # The official one-line installer quits YT Grab, replaces it and opens the new one.
+    subprocess.Popen(["/bin/bash", "-c", f"sleep 1; curl -fsSL {APP_INSTALLER} | bash"], start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def active_jobs() -> int:
     return sum(1 for j in list(jobs.values()) if j.status in ("queued", "running"))
 
@@ -998,6 +1098,7 @@ def watch_ytdlp() -> None:
     so a newer release is installed quietly as soon as the queue is idle."""
     time.sleep(20)
     while True:
+        check_app_release()
         try:
             latest = ytdlp_outdated() if can_self_install() else None
             if latest:
@@ -1052,8 +1153,31 @@ def run_gallery(job: Job, cmd: list[str], cfg: dict, total: int = 0) -> tuple[in
     return job.proc.wait(), tail, skipped
 
 
+def download_threads(job: Job, cfg: dict) -> None:
+    folder = photos.target_dir(cfg["out_dir"], "Threads", job.info)
+    job.status, job.current = "running", folder.name
+
+    def got(path: str, total: int) -> None:
+        job.files.append(path)
+        job.current = Path(path).name
+        job.percent = min(99.0, len(job.files) / max(1, total) * 100)
+
+    try:
+        threads_photos.download(job.url, folder, got, lambda: job.cancelled)
+    except (OSError, ValueError) as exc:
+        if not job.files:
+            raise ValueError(f"Threads не віддав файли: {exc}")
+        job.error = f"Частину файлів пропущено: {exc}"
+    job.status = "cancelled" if job.cancelled else "done" if job.files else "error"
+    job.percent = 100.0 if job.status == "done" else job.percent
+    if job.status == "error" and not job.error:
+        job.error = "У цьому пості немає ні відео, ні фото"
+
+
 def download_photos(job: Job, cfg: dict, binary: str) -> None:
     """Fetch a photo post (job.info from photos.probe) into its own folder. Runs inside a job slot."""
+    if threads_photos.POST_URL.match(job.url):
+        return download_threads(job, cfg)
     folder = photos.target_dir(cfg["out_dir"], job.platform, job.info)
     folder.mkdir(parents=True, exist_ok=True)
     total = max(1, int(job.info.get("count") or 1))
@@ -1084,12 +1208,7 @@ def switch_to_photos(job: Job, cfg: dict, ytdlp_error: str = "") -> None:
     """Turn a download that found no video into a photo-post download (used by pasted links and batches)."""
     binary = photos.gallery_bin(VENV_DIR)
     job.status, job.current, job.error = "running", "шукаю фото в пості", ""
-    try:
-        info = photos.probe(binary, job.url, cfg.get("cookies_browser", ""))
-    except subprocess.TimeoutExpired:
-        raise ValueError("Сайт надто довго не відповідає, спробуй ще раз")
-    except ValueError as exc:
-        raise ValueError(sites.friendly_error(str(exc), job.url, cfg.get("cookies_browser", "")))
+    info = fetch_photos(job.url, cfg)
     if not info:
         # Nothing for gallery-dl either: yt-dlp's own message (e.g. "unsupported URL") says more.
         raise ValueError(sites.friendly_error(ytdlp_error, job.url, cfg.get("cookies_browser", ""))
@@ -1109,7 +1228,7 @@ def run_photos(job: Job) -> None:
         cfg = load_settings()
         binary = photos.gallery_bin(VENV_DIR)
         try:
-            if not binary:
+            if not binary and not threads_photos.POST_URL.match(job.url):
                 raise RuntimeError("gallery-dl не встановлено: Налаштування → «Інструменти»")
             download_photos(job, cfg, binary)
         except Exception as exc:  # surface any launcher failure in the UI
@@ -1496,7 +1615,7 @@ def retry_job(job_id: str) -> Job:
         raise ValueError("Це завдання не можна повторити")
     if job.kind == "download":
         new = start_job(job.url, "" if job.title == job.url else job.title, job.quality, job.use_archive,
-                        job.mp4, job.date_from, job.date_to)
+                        job.mp4, job.date_from, job.date_to, job.section)
     elif job.kind == "photos":
         new = start_photos(job.url, {**(getattr(job, "info", None) or {}), "title": job.title})
     elif job.kind == "profile":
@@ -1636,6 +1755,39 @@ def list_downloads(limit: int = 500) -> list[dict]:
     return items[:limit]
 
 
+THUMBS_DIR = CONFIG_DIR / "thumbs"
+thumb_slots = threading.Semaphore(2)
+
+
+def file_thumbnail(path_str: str) -> Path:
+    """A small JPEG frame of a downloaded file (cover art for audio), cached in ~/.ytgrab/thumbs."""
+    root = Path(load_settings()["out_dir"]).resolve()
+    path = Path(path_str).resolve()
+    if root not in path.parents or not path.is_file():
+        raise ValueError("Файл не знайдено")
+    st = path.stat()
+    out = THUMBS_DIR / (hashlib.sha1(f"{path}|{st.st_size}|{st.st_mtime}".encode()).hexdigest() + ".jpg")
+    if out.exists():
+        return out
+    THUMBS_DIR.mkdir(parents=True, exist_ok=True)
+    # Two seconds in skips black intros; short clips, photos and covers take the first frame.
+    seeks = [["-ss", "2"], []] if path.suffix.lower() not in AUDIO_EXT | IMAGE_EXT else [[]]
+    tmp = out.with_name(out.stem + f".{uuid.uuid4().hex[:6]}.tmp.jpg")
+    with thumb_slots:
+        for seek in seeks:
+            cmd = ["ffmpeg", "-v", "error", "-y", *seek, "-i", str(path), "-an", "-frames:v", "1",
+                   "-vf", "scale=320:-2", "-q:v", "6", str(tmp)]
+            try:
+                done = subprocess.run(cmd, capture_output=True, timeout=30).returncode == 0
+            except (OSError, subprocess.TimeoutExpired):
+                done = False
+            if done and tmp.exists() and tmp.stat().st_size > 0:
+                tmp.replace(out)
+                return out
+            tmp.unlink(missing_ok=True)
+    raise ValueError("Немає кадру")
+
+
 def open_path(path_str: str, reveal: bool) -> None:
     root = Path(load_settings()["out_dir"]).resolve()
     path = Path(path_str).resolve()
@@ -1728,6 +1880,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/status":
             state = read_state()
             self._send_json({"tools": tool_status(), "ytdlp": {**ytdlp_info(), "latest": state.get("ytdlp_latest")},
+                             "app": {"version": app_version(), "update": app_update()},
                              "settings": public_settings(),
                              "self_install": can_self_install(),
                              "setup_running": any(j.kind == "setup" and j.status in ("queued", "running")
@@ -1748,6 +1901,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "max-age=3600")
+            self.end_headers()
+            self.wfile.write(data)
+        elif path == "/api/file-thumb":
+            try:
+                data = file_thumbnail((parse_qs(urlparse(self.path).query).get("p") or [""])[0]).read_bytes()
+            except (ValueError, OSError) as exc:
+                return self._send_json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "max-age=86400")
             self.end_headers()
             self.wfile.write(data)
         elif path == "/api/convert/caps":
@@ -1771,9 +1935,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/download":
                 mp4 = bool(data.get("mp4", load_settings().get("auto_mp4")))
                 date_from, date_to = parse_dates(data)
+                section = parse_section(data) if data.get("kind") == "video" else None
                 job = start_job(normalize_url(str(data.get("url", ""))), str(data.get("title") or ""),
                                 str(data.get("quality", "best")), use_archive=data.get("kind") != "video", mp4=mp4,
-                                date_from=date_from, date_to=date_to)
+                                date_from=date_from, date_to=date_to, section=section)
                 job.thumbnail = clean_thumbnail(data.get("thumbnail"))
                 self._send_json(job.to_json())
             elif path == "/api/profile":
@@ -1886,6 +2051,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/choose":
                 picked = choose_files(str(data.get("prompt") or "Обери файли"))
                 self._send_json({"paths": expand_media([Path(p) for p in picked])})
+            elif path == "/api/app-update":
+                start_app_update()
+                self._send_json({"ok": True})
             elif path == "/api/open-privacy":
                 subprocess.Popen(["open", FULL_DISK_PANE])
                 self._send_json({"ok": True})

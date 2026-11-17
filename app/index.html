@@ -405,6 +405,18 @@
   .dtags:empty { display: none; }
   .dcard.wide .dmeta { margin: 0; -webkit-line-clamp: 3; }
   .dcard.wide .dact { margin: 10px 0 0; flex-wrap: wrap; }
+  .clip-row { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .clip-row[hidden] { display: none; }
+  .clip-in { width: 82px; height: 30px; text-align: center; padding: 0 8px; }
+  .clip-note { color: var(--muted); font-size: 12.5px; }
+  .clip-note.bad { color: var(--err); }
+  #clip-toggle.on { background: var(--surface-3); color: var(--text); }
+  .fthumb { position: relative; flex: none; width: 72px; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; display: grid; place-items: center; background: var(--surface-2); color: var(--faint); }
+  .fthumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .file { padding-block: 7px; }
+  .nav.has-update::after { content: ""; position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--sidebar); }
+  .app-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); }
+  .app-meta b { color: var(--text); }
   @keyframes card-in { from { transform: translateY(10px) scale(.97); } to { transform: none; } }
   @keyframes pop { 0% { transform: scale(.7); } 100% { transform: none; } }
   @media (prefers-reduced-motion: reduce) {
@@ -596,6 +608,10 @@
         </div>
       </div>
       <div class="setting">
+        <div><label class="title">Версія YT Grab</label><p>Раз на добу YT Grab дивиться на GitHub, чи вийшла новіша версія.</p></div>
+        <div class="app-meta" id="app-meta"></div>
+      </div>
+      <div class="setting">
         <div><label class="title">Компоненти</label><p>yt-dlp, ffmpeg, deno, curl_cffi (для TikTok) і gallery-dl (для фото). YT Grab тримає їх у ~/.ytgrab і оновлює цією кнопкою — корисно, якщо якийсь сайт перестав качати.</p></div>
         <div>
           <div class="tools" id="tools"></div>
@@ -695,6 +711,7 @@ const ICONS = {
   video: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="m17 10 5-3v10l-5-3"/></svg>',
   audio: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
   image: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>',
+  scissors: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg>',
   drop: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>',
 };
 
@@ -741,6 +758,16 @@ async function loadStatus() {
   const vnum = (v) => (String(v || "").match(/\d+/g) || []).map(Number);
   const newer = (a, b) => { const x = vnum(a), z = vnum(b); for (let i = 0; i < Math.max(x.length, z.length); i++) { if ((x[i] || 0) !== (z[i] || 0)) return (x[i] || 0) > (z[i] || 0); } return false; };
   const fresh = !y.own || !y.latest ? "" : newer(y.latest, y.version) ? ` · вийшла ${y.latest}, оновлю сам, щойно черга звільниться` : " · найновіша, перевіряю щодня";
+  const app = s.app || {}, upd = app.update;
+  $("#app-meta").innerHTML = upd
+    ? `<span>Вийшла версія <b>${esc(upd.version)}</b>, у тебе ${esc(app.version || "?")}.</span><button class="btn primary" type="button" id="app-update-go">Оновити YT Grab</button>${upd.url ? `<a href="${esc(upd.url)}" target="_blank" rel="noopener">що нового</a>` : ""}`
+    : app.version ? `<span>YT Grab ${esc(app.version)} · найновіша</span>` : "";
+  $('.nav[data-view="settings"]').classList.toggle("has-update", !!upd);
+  $('.nav[data-view="settings"]').title = upd ? `Налаштування · вийшла версія ${upd.version}` : "Налаштування";
+  if ($("#app-update-go")) $("#app-update-go").addEventListener("click", async () => {
+    try { await api("/api/app-update", {}); toast("Оновлюю: YT Grab закриється й за хвилину відкриється знову"); }
+    catch (e) { toast(e.message); }
+  });
   $("#ytdlp-meta").textContent = y.version ? `yt-dlp ${y.version} · ${y.own ? "власна копія" : "з Homebrew"}${fresh}` : "";
   $("#install-ytdlp").textContent = missing.length ? "Встановити компоненти" : "Оновити компоненти";
   $("#tools").innerHTML = Object.entries(s.tools)
@@ -869,6 +896,7 @@ function renderResult() {
     options = heights.map((q, i) => ({
       q: i === 0 ? "best" : q.height, label: resName(q.height),
       size: [q.height >= 1440 ? q.height + "p" : "", fmtSize(q.size), q.fps && q.fps > 30 ? Math.round(q.fps) + " fps" : ""].filter(Boolean).join(" · "),
+      bytes: q.size || 0,
     }));
     if (!options.length) options.push({ q: "best", label: "Найкраща", size: "" });
     options.forEach((o, i) => { o.h = heights[i] ? heights[i].height : 0; });
@@ -876,7 +904,9 @@ function renderResult() {
     options = [{ q: "best", label: "Найкраща" }, { q: 2160, label: "До 4K" }, { q: 1440, label: "До 2K" },
       { q: 1080, label: "До 1080p" }, { q: 720, label: "До 720p" }];
   }
-  options.push({ q: "audio", label: "Звук", size: ["MP3 320 kbps", fmtSize(info.audio_size)].filter(Boolean).join(" · ") });
+  options.push({ q: "audio", label: "Звук", size: ["MP3 320 kbps", fmtSize(info.audio_size)].filter(Boolean).join(" · "), bytes: info.audio_size || 0 });
+  state.clip = null;
+  state.clipUpdate = null;
   state.choice = String(options[0].q);
   // Start from the quality chosen last time on this site (or the nearest lower one).
   const remembered = (((state.settings || {}).site_quality) || {})[siteKey(state.url)];
@@ -906,9 +936,9 @@ function renderResult() {
     ${isList ? periodHtml("all") : ""}
     <div class="pick num"><div class="seg seg-q" role="radiogroup" aria-label="Якість">${seg}</div><span class="pick-size" id="pick-size"></span>
       <button class="btn primary big" id="dl-go">${ICONS.download}${isList ? "Завантажити все" : "Завантажити"}</button></div>
-    <div class="pick-foot">${mp4Toggle()}${info.can_photos ? '<button class="chip-btn" id="photos-all">Усе з поста, разом з фото</button>' : ""}</div>
+    <div class="pick-foot">${mp4Toggle()}${info.can_photos ? '<button class="chip-btn" id="photos-all">Усе з поста, разом з фото</button>' : ""}${!isList && info.duration ? clipHtml(info.duration) : ""}</div>
     ${list}</div>`;
-  const refresh = () => { $("#pick-size").textContent = sizeText(); };
+  const refresh = () => { $("#pick-size").textContent = sizeText(); if (state.clipUpdate) state.clipUpdate(); };
   const segBox = $("#result .seg-q");
   const choose = (b) => {
     state.choice = b.dataset.q;
@@ -934,7 +964,45 @@ function renderResult() {
   bindMp4Toggle($("#result"));
   bindPeriod($("#result"), refresh);
   refresh();
+  if ($("#clip-toggle")) bindClip(info, options);
   if ($("#photos-all")) $("#photos-all").addEventListener("click", () => downloadPhotos({ title: info.title, uploader: info.uploader, count: 0, thumbnail: info.thumbnail }));
+}
+// A clip of a video: only the part between two moments is downloaded (yt-dlp --download-sections).
+function clipHtml(duration) {
+  return `<button type="button" class="chip-btn" id="clip-toggle" aria-expanded="false">${ICONS.scissors}Лише шматок</button>
+    <div class="clip-row" id="clip-row" hidden>з <input class="field-input clip-in num" id="clip-from" value="0:00" aria-label="Початок шматка" autocomplete="off">
+    до <input class="field-input clip-in num" id="clip-to" value="${fmtDuration(duration)}" aria-label="Кінець шматка" autocomplete="off">
+    <span class="clip-note num" id="clip-note" aria-live="polite"></span></div>`;
+}
+function parseClock(text) {
+  const t = String(text || "").trim().replace(",", ".");
+  if (!/^\d+(:\d{1,2}){0,2}(\.\d+)?$/.test(t)) return NaN;
+  return t.split(":").reduce((acc, part) => acc * 60 + parseFloat(part), 0);
+}
+function bindClip(info, options) {
+  const row = $("#clip-row"), toggle = $("#clip-toggle"), go = $("#dl-go");
+  const update = () => {
+    const on = !row.hidden;
+    const a = parseClock($("#clip-from").value), b = parseClock($("#clip-to").value);
+    const valid = on && a >= 0 && b - a >= 1 && b <= info.duration + 1;
+    state.clip = !on ? null : valid ? [$("#clip-from").value.trim(), $("#clip-to").value.trim()] : "invalid";
+    const o = options.find((x) => String(x.q) === state.choice) || options[0];
+    const note = $("#clip-note");
+    note.textContent = !on ? "" : !valid ? "Перевір час: хв:сек, кінець пізніше за початок"
+      : `${fmtDuration(b - a) || "0:01"}${o.bytes ? " · ≈ " + fmtSize(o.bytes * (b - a) / info.duration) : ""}`;
+    note.classList.toggle("bad", on && !valid);
+    go.lastChild.textContent = on ? "Завантажити шматок" : "Завантажити";
+    go.disabled = on && !valid;
+  };
+  toggle.addEventListener("click", () => {
+    row.hidden = !row.hidden;
+    toggle.setAttribute("aria-expanded", String(!row.hidden));
+    toggle.classList.toggle("on", !row.hidden);
+    if (!row.hidden) $("#clip-from").select();
+    update();
+  });
+  ["#clip-from", "#clip-to"].forEach((id) => $(id).addEventListener("input", update));
+  state.clipUpdate = update;
 }
 // Social CDNs often refuse hot-linked previews: try directly, then through our relay, then give up quietly.
 function imgTag(url, cls) {
@@ -971,11 +1039,14 @@ function siteKey(url) {
 async function download(quality) {
   const dates = state.info && state.info.kind === "playlist" ? periodDates() : {};
   if (!dates) return;
+  const clip = state.info && state.info.kind === "video" ? state.clip : null;
+  if (clip === "invalid") return toast("Перевір час шматка");
+  const part = clip ? { section_from: clip[0], section_to: clip[1] } : {};
   try {
-    await api("/api/download", { url: state.url, title: state.info && state.info.title, kind: state.info && state.info.kind, thumbnail: (state.info && state.info.thumbnail) || "", quality, mp4: wantMp4(), ...dates });
+    await api("/api/download", { url: state.url, title: state.info && state.info.title, kind: state.info && state.info.kind, thumbnail: (state.info && state.info.thumbnail) || "", quality, mp4: wantMp4(), ...dates, ...part });
     api("/api/settings", { site_quality: { [siteKey(state.url)]: String(quality) } })
       .then((saved) => { state.settings = saved; }).catch(() => {});
-    toast(`Додано в чергу: ${qualityLabel(quality)}${wantMp4() && quality !== "audio" ? " → MP4" : ""}${dates.date_from || dates.date_to ? " · " + periodText(dates) : ""}`);
+    toast(`Додано в чергу: ${qualityLabel(quality)}${wantMp4() && quality !== "audio" ? " → MP4" : ""}${dates.date_from || dates.date_to ? " · " + periodText(dates) : ""}${clip ? ` · шматок ${clip[0]}–${clip[1]}` : ""}`);
     loadJobs();
   } catch (e) { toast(e.message); }
 }
@@ -1115,7 +1186,8 @@ function jobTag(j) {
   if (j.kind === "transcribe") return "SRT · " + esc(j.quality);
   if (j.kind === "photos") return "фото";
   if (j.kind === "profile") return j.quality === "posts" ? "пости" : "рілси";
-  return esc(qualityLabel(j.quality)) + (j.mp4 ? " → MP4" : "");
+  const clip = j.section ? `шматок ${fmtDuration(j.section[0]) || "0:00"}–${fmtDuration(j.section[1])} · ` : "";
+  return clip + esc(qualityLabel(j.quality)) + (j.mp4 ? " → MP4" : "");
 }
 async function loadJobs() {
   try { state.jobs = await api("/api/jobs"); } catch { return; }
@@ -1301,7 +1373,7 @@ function renderFiles() {
     const type = f.image ? "image" : f.video ? "video" : "audio";
     return `
     <div class="file">
-      <div class="ftype ${type}">${ICONS[type]}</div>
+      <div class="fthumb ${type}">${ICONS[type]}<img src="/api/file-thumb?p=${encodeURIComponent(f.path)}" alt="" loading="lazy" onerror="this.remove()"></div>
       <div class="file-main">
         <div class="file-name" title="${esc(f.name)}">${esc(f.name)}</div>
         <div class="file-sub num">${esc(f.folder)} · ${fmtSize(f.size)} · ${new Date(f.mtime * 1000).toLocaleString("uk-UA", { dateStyle: "medium", timeStyle: "short" })}</div>
