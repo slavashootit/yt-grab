@@ -28,8 +28,16 @@ for _ in $(seq 1 50); do
   pgrep -f "YT Grab.app/Contents/MacOS/YTGrab" >/dev/null 2>&1 || break
   sleep 0.3
 done
+# Releases built on GitHub are signed ad-hoc. If the copy being replaced was signed with a certificate
+# this Mac has (a self-signed "Kadr Dev" and the like), sign the new copy the same way, so macOS keeps
+# the permissions it gave YT Grab (Downloads folder and so on) instead of asking again.
+SIGNER="$(codesign -dvv "$DEST/YT Grab.app" 2>&1 | sed -n 's/^Authority=//p' | head -1 || true)"
 rm -rf "$DEST/YT Grab.app"
 ditto -x -k "$TMP/YT-Grab.zip" "$DEST"
+if [ -n "$SIGNER" ] && security find-identity -p codesigning 2>/dev/null | grep -q "\"$SIGNER\""; then
+  codesign --force --sign "$SIGNER" "$DEST/YT Grab.app/Contents/MacOS/uv" 2>/dev/null || true
+  codesign --force --sign "$SIGNER" "$DEST/YT Grab.app" 2>/dev/null || true
+fi
 
 echo "Готово: $DEST/YT Grab.app"
 open "$DEST/YT Grab.app"
